@@ -33,9 +33,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app = FastAPI(title="Violet Assistant Core", version="0.1.0")
+    client_origins = {
+        active_settings.public_client_url,
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    }
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[active_settings.public_client_url],
+        allow_origins=sorted(client_origins),
+        allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -24,4 +24,5 @@ where = ["services/assistant-core/src"]
 [tool.pytest.ini_options]
 pythonpath = ["services/assistant-core/src"]
 testpaths = ["services/assistant-core/tests"]
-
+addopts = "--basetemp=.tmp/pytest"
+cache_dir = ".tmp/pytest-cache"

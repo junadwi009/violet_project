@@ -7,6 +7,8 @@ Violet AI is a local-first personal assistant project. This repository currently
 - FastAPI assistant-core service.
 - `POST /api/chat` text chat endpoint.
 - `GET /health` health endpoint.
+- Memory candidate approval, rejection, edit, and delete endpoints.
+- React web client for chat and memory review.
 - Mock LLM provider as the default.
 - OpenAI-compatible provider for Ollama, LM Studio, vLLM, or cloud endpoints when configured.
 - JSON personality profile loading.
@@ -28,6 +30,8 @@ The default `.env.example` uses `LLM_PROVIDER=mock`, so no paid API key or local
 
 ## Run
 
+Start the backend:
+
 ```powershell
 uvicorn violet_assistant.main:app --host 127.0.0.1 --port 8000
 ```
@@ -40,6 +44,39 @@ Invoke-RestMethod `
   -Uri http://127.0.0.1:8000/api/chat `
   -ContentType "application/json" `
   -Body '{"content":"Violet, remember that I prefer concise engineering updates.","personality_id":"violet.default"}'
+```
+
+If port `8000` is busy, use `8001` and set the web client API URL to match.
+
+Start the web client:
+
+```powershell
+cd apps\web-client
+npm install
+$env:VITE_API_BASE_URL="http://127.0.0.1:8000"
+npm run dev
+```
+
+Open the Vite URL printed in the terminal, usually `http://127.0.0.1:5173`.
+
+## Memory Review
+
+Candidate memories stay pending until approved:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/memory/candidates
+```
+
+Approve a candidate:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/memory/candidates/<candidate-id>/approve
+```
+
+Approved memories can be listed at:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/memory
 ```
 
 ## Use Ollama Or Another OpenAI-Compatible Endpoint
@@ -67,4 +104,3 @@ python -m pytest
 - Memory-like statements become candidates for review.
 - Provider selection is environment-driven.
 - Risky tools are not implemented in Phase 1.
-

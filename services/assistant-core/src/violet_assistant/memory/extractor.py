@@ -9,6 +9,25 @@ from violet_assistant.memory.schema import MemoryCandidate
 SECRET_HINTS = {"api key", "password", "secret", "token", "credential"}
 
 
+def _clean_fact(raw_fact: str) -> str:
+    fact = raw_fact.strip().rstrip(".")
+    prefixes = [
+        "that i prefer ",
+        "i prefer ",
+        "that my name is ",
+        "my name is ",
+        "that i do not like ",
+        "that i don't like ",
+        "i do not like ",
+        "i don't like ",
+    ]
+    lowered = fact.lower()
+    for prefix in prefixes:
+        if lowered.startswith(prefix):
+            return fact[len(prefix) :].strip().rstrip(".")
+    return fact
+
+
 def extract_memory_candidates(
     content: str, source_message_id: str
 ) -> list[MemoryCandidate]:
@@ -50,7 +69,7 @@ def extract_memory_candidates(
             for start, end in matched_spans
         ):
             continue
-        fact = match.group("fact").strip().rstrip(".")
+        fact = _clean_fact(match.group("fact"))
         if not fact:
             continue
         matched_spans.append((match.start(), match.end()))

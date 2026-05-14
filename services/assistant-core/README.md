@@ -7,6 +7,12 @@ Assistant Core is the Phase 1 backend service for Violet AI.
 - `GET /health`
 - `POST /api/chat`
 - `GET /api/memory/candidates`
+- `PATCH /api/memory/candidates/{id}`
+- `POST /api/memory/candidates/{id}/approve`
+- `POST /api/memory/candidates/{id}/reject`
+- `GET /api/memory`
+- `PATCH /api/memory/{id}`
+- `DELETE /api/memory/{id}`
 
 ## Local Run
 
@@ -18,4 +24,3 @@ uvicorn violet_assistant.main:app --host 127.0.0.1 --port 8000
 ```
 
 The service defaults to `LLM_PROVIDER=mock`, which is deterministic and offline-friendly.
-

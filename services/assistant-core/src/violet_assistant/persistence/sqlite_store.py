@@ -146,8 +146,180 @@ class SQLiteStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def approved_memories(self) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                  id,
+                  memory_type,
+                  content,
+                  source,
+                  confidence,
+                  approved,
+                  metadata_json,
+                  created_at,
+                  updated_at
+                FROM memories
+                WHERE approved = 1
+                ORDER BY updated_at DESC, rowid DESC
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def update_memory_candidate(
+        self, candidate_id: str, content: str, memory_type: str | None = None
+    ) -> dict[str, Any]:
+        with self._connect() as connection:
+            existing = self._candidate_row(connection, candidate_id)
+            if existing is None:
+                raise KeyError(candidate_id)
+            connection.execute(
+                """
+                UPDATE memory_candidates
+                SET content = ?, memory_type = COALESCE(?, memory_type)
+                WHERE id = ? AND status = 'pending'
+                """,
+                (content, memory_type, candidate_id),
+            )
+            updated = self._candidate_row(connection, candidate_id)
+        if updated is None:
+            raise KeyError(candidate_id)
+        return dict(updated)
+
+    def approve_memory_candidate(self, candidate_id: str) -> dict[str, Any]:
+        with self._connect() as connection:
+            candidate = self._candidate_row(connection, candidate_id)
+            if candidate is None or candidate["status"] != "pending":
+                raise KeyError(candidate_id)
+
+            memory_id = str(uuid4())
+            connection.execute(
+                """
+                INSERT INTO memories (
+                  id,
+                  memory_type,
+                  content,
+                  source,
+                  confidence,
+                  approved,
+                  metadata_json
+                )
+                VALUES (?, ?, ?, ?, ?, 1, ?)
+                """,
+                (
+                    memory_id,
+                    candidate["memory_type"],
+                    candidate["content"],
+                    f"message:{candidate['source_message_id']}",
+                    candidate["confidence"],
+                    json.dumps({"candidate_id": candidate_id}),
+                ),
+            )
+            connection.execute(
+                """
+                UPDATE memory_candidates
+                SET status = 'approved'
+                WHERE id = ?
+                """,
+                (candidate_id,),
+            )
+        return {"id": candidate_id, "status": "approved", "memory_id": memory_id}
+
+    def reject_memory_candidate(self, candidate_id: str) -> dict[str, Any]:
+        with self._connect() as connection:
+            candidate = self._candidate_row(connection, candidate_id)
+            if candidate is None or candidate["status"] != "pending":
+                raise KeyError(candidate_id)
+            connection.execute(
+                """
+                UPDATE memory_candidates
+                SET status = 'rejected'
+                WHERE id = ?
+                """,
+                (candidate_id,),
+            )
+        return {"id": candidate_id, "status": "rejected", "memory_id": None}
+
+    def update_memory(
+        self, memory_id: str, content: str, memory_type: str | None = None
+    ) -> dict[str, Any]:
+        with self._connect() as connection:
+            existing = connection.execute(
+                """
+                SELECT id
+                FROM memories
+                WHERE id = ? AND approved = 1
+                """,
+                (memory_id,),
+            ).fetchone()
+            if existing is None:
+                raise KeyError(memory_id)
+            connection.execute(
+                """
+                UPDATE memories
+                SET content = ?,
+                    memory_type = COALESCE(?, memory_type),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (content, memory_type, memory_id),
+            )
+            row = connection.execute(
+                """
+                SELECT
+                  id,
+                  memory_type,
+                  content,
+                  source,
+                  confidence,
+                  approved,
+                  metadata_json,
+                  created_at,
+                  updated_at
+                FROM memories
+                WHERE id = ?
+                """,
+                (memory_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(memory_id)
+        return dict(row)
+
+    def delete_memory(self, memory_id: str) -> dict[str, Any]:
+        with self._connect() as connection:
+            result = connection.execute(
+                """
+                DELETE FROM memories
+                WHERE id = ?
+                """,
+                (memory_id,),
+            )
+            if result.rowcount == 0:
+                raise KeyError(memory_id)
+        return {"id": memory_id, "status": "deleted", "memory_id": memory_id}
+
+    def _candidate_row(
+        self, connection: sqlite3.Connection, candidate_id: str
+    ) -> sqlite3.Row | None:
+        return connection.execute(
+            """
+            SELECT
+              id,
+              memory_type,
+              content,
+              reason,
+              source_message_id,
+              confidence,
+              status,
+              created_at
+            FROM memory_candidates
+            WHERE id = ?
+            """,
+            (candidate_id,),
+        ).fetchone()
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path)
         connection.row_factory = sqlite3.Row
         return connection
-
