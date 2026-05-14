@@ -79,8 +79,9 @@ export function createSpeechRecognizer(
   return recognition;
 }
 
-export function speakText(text: string): void {
+export function speakText(text: string, onEnd?: () => void): void {
   if (!canSpeak()) {
+    onEnd?.();
     return;
   }
   window.speechSynthesis.cancel();
@@ -88,6 +89,8 @@ export function speakText(text: string): void {
   utterance.lang = "id-ID";
   utterance.rate = 1;
   utterance.pitch = 1;
+  utterance.onend = () => onEnd?.();
+  utterance.onerror = () => onEnd?.();
   window.speechSynthesis.speak(utterance);
 }
 
@@ -96,4 +99,3 @@ export function stopSpeaking(): void {
     window.speechSynthesis.cancel();
   }
 }
-

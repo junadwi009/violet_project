@@ -1,0 +1,16 @@
+{
+  "id": "violet.placeholder",
+  "mode": "placeholder",
+  "vrm_model_path": "/avatar/violet.vrm",
+  "states": [
+    "idle",
+    "listening",
+    "thinking",
+    "speaking",
+    "confirming",
+    "warning",
+    "error"
+  ],
+  "manual_setup_required": "Place a VRM file at apps/web-client/public/avatar/violet.vrm before enabling the real VRM renderer."
+}
+

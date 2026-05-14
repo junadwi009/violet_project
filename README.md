@@ -1,8 +1,8 @@
 # Violet AI
 
-Violet AI is a local-first personal assistant project. This repository currently implements the Phase 1 backend MVP: a text chat API with personality configuration, an LLM provider adapter, SQLite-backed chat history, and memory-candidate placeholders that do not become permanent memory automatically.
+Violet AI is a local-first personal assistant project. This repository currently implements the Phase 1 text MVP, the first safe Phase 2 voice scaffolding, and a Phase 3 avatar placeholder that stops before requiring a manual VRM asset.
 
-## Phase 1 Scope
+## Current Scope
 
 - FastAPI assistant-core service.
 - `POST /api/chat` text chat endpoint.
@@ -11,13 +11,14 @@ Violet AI is a local-first personal assistant project. This repository currently
 - React web client for chat and memory review.
 - Phase 2 mock STT/TTS service scaffolding.
 - Browser speech input and speech output controls in the web client when supported.
+- Phase 3 avatar placeholder with state and emotion mapping.
 - Mock LLM provider as the default.
 - OpenAI-compatible provider for Ollama, LM Studio, vLLM, or cloud endpoints when configured.
 - JSON personality profile loading.
 - SQLite schema for sessions, messages, memories, memory candidates, gesture events, and tool audit logs.
 - Basic tests for core behavior.
 
-Out of scope for this phase: webcam, microphone, TTS, avatar, internet research, autonomous tools, and VPS deployment.
+Still out of scope: real voice cloning, real STT model downloads, real Piper/XTTS/OpenVoice/Fish setup, real VRM rendering, webcam gesture recognition, internet research, autonomous tools, and VPS deployment.
 
 ## Setup
 
@@ -62,6 +63,18 @@ npm run dev
 Open the Vite URL printed in the terminal, usually `http://127.0.0.1:5173`.
 
 The web client includes browser-native speech controls. Speech input asks for microphone access only when you press the microphone button. Speech output uses the browser speech synthesis API and does not call a paid service.
+
+## Phase 3 Avatar Placeholder
+
+The web client now shows a local placeholder avatar that changes state while Violet is idle, listening, thinking, speaking, confirming, or handling an error.
+
+The next avatar step requires a manual asset:
+
+```text
+apps/web-client/public/avatar/violet.vrm
+```
+
+Use `configs/avatar/avatar.example.json` as the intended config shape. Do not commit private or licensed avatar files unless you are sure they are allowed to be public in this repo.
 
 ## Phase 2 Mock Voice Services
 

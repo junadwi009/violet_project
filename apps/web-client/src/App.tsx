@@ -13,6 +13,7 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
+import { AvatarPanel } from "./components/AvatarPanel";
 import {
   ChatMessage,
   Memory,
@@ -34,6 +35,11 @@ import {
   speakText,
   stopSpeaking,
 } from "./lib/speech";
+import {
+  AvatarEmotion,
+  AvatarState,
+  normalizeEmotion,
+} from "./lib/avatar";
 
 type Status = {
   tone: "idle" | "busy" | "ok" | "error";
@@ -46,6 +52,8 @@ export function App() {
   const [draft, setDraft] = useState("");
   const [speechOutputEnabled, setSpeechOutputEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [avatarState, setAvatarState] = useState<AvatarState>("idle");
+  const [avatarEmotion, setAvatarEmotion] = useState<AvatarEmotion>("neutral");
   const [status, setStatus] = useState<Status>({
     tone: "idle",
     text: "Ready",
@@ -88,10 +96,14 @@ export function App() {
     setMessages((current) => [...current, userMessage]);
     setDraft("");
     setStatus({ tone: "busy", text: "Thinking" });
+    setAvatarState("thinking");
+    setAvatarEmotion("focused");
 
     try {
       const response = await sendChat(content, sessionId);
+      const nextEmotion = normalizeEmotion(response.emotion);
       setSessionId(response.session_id);
+      setAvatarEmotion(nextEmotion);
       setMessages((current) => [
         ...current,
         {
@@ -101,7 +113,14 @@ export function App() {
         },
       ]);
       if (speechOutputEnabled) {
-        speakText(response.text);
+        setAvatarState("speaking");
+        speakText(response.text, () => {
+          setAvatarState("idle");
+        });
+      } else {
+        setAvatarState(
+          response.memory_candidates.length > 0 ? "confirming" : "idle",
+        );
       }
       await refreshMemory();
       setStatus({
@@ -116,6 +135,8 @@ export function App() {
         tone: "error",
         text: error instanceof Error ? error.message : "Request failed",
       });
+      setAvatarState("error");
+      setAvatarEmotion("concerned");
     }
   }
 
@@ -124,6 +145,7 @@ export function App() {
       recognizerRef.current?.stop();
       setIsListening(false);
       setStatus({ tone: "idle", text: "Stopped listening" });
+      setAvatarState("idle");
       return;
     }
 
@@ -132,11 +154,15 @@ export function App() {
         if (text) {
           setDraft((current) => (current ? `${current} ${text}` : text));
           setStatus({ tone: "ok", text: "Transcript ready" });
+          setAvatarState("confirming");
+          setAvatarEmotion("focused");
         }
       },
       (message) => {
         setStatus({ tone: "error", text: `Speech input: ${message}` });
         setIsListening(false);
+        setAvatarState("error");
+        setAvatarEmotion("concerned");
       },
       () => {
         setIsListening(false);
@@ -145,12 +171,16 @@ export function App() {
 
     if (!recognizer) {
       setStatus({ tone: "error", text: "Speech input unavailable" });
+      setAvatarState("warning");
+      setAvatarEmotion("concerned");
       return;
     }
 
     recognizerRef.current = recognizer;
     setIsListening(true);
     setStatus({ tone: "busy", text: "Listening" });
+    setAvatarState("listening");
+    setAvatarEmotion("calm");
     recognizer.start();
   }
 
@@ -159,23 +189,30 @@ export function App() {
       stopSpeaking();
       setSpeechOutputEnabled(false);
       setStatus({ tone: "idle", text: "Speech output off" });
+      setAvatarState("idle");
       return;
     }
     setSpeechOutputEnabled(true);
     setStatus({ tone: "ok", text: "Speech output on" });
+    setAvatarState("confirming");
+    setAvatarEmotion("happy");
   }
 
   async function handleCandidateSave(candidate: MemoryCandidate) {
     setStatus({ tone: "busy", text: "Saving candidate" });
+    setAvatarState("thinking");
     try {
       await updateMemoryCandidate(candidate);
       await refreshMemory();
       setStatus({ tone: "ok", text: "Candidate saved" });
+      setAvatarState("confirming");
     } catch (error) {
       setStatus({
         tone: "error",
         text: error instanceof Error ? error.message : "Save failed",
       });
+      setAvatarState("error");
+      setAvatarEmotion("concerned");
     }
   }
 
@@ -187,6 +224,7 @@ export function App() {
       tone: "busy",
       text: action === "approve" ? "Approving memory" : "Rejecting memory",
     });
+    setAvatarState("thinking");
     try {
       if (action === "approve") {
         await approveMemoryCandidate(id);
@@ -198,39 +236,52 @@ export function App() {
         tone: "ok",
         text: action === "approve" ? "Memory approved" : "Candidate rejected",
       });
+      setAvatarState("confirming");
+      setAvatarEmotion(action === "approve" ? "happy" : "calm");
     } catch (error) {
       setStatus({
         tone: "error",
         text: error instanceof Error ? error.message : "Action failed",
       });
+      setAvatarState("error");
+      setAvatarEmotion("concerned");
     }
   }
 
   async function handleMemorySave(memory: Memory) {
     setStatus({ tone: "busy", text: "Saving memory" });
+    setAvatarState("thinking");
     try {
       await updateMemory(memory);
       await refreshMemory();
       setStatus({ tone: "ok", text: "Memory saved" });
+      setAvatarState("confirming");
     } catch (error) {
       setStatus({
         tone: "error",
         text: error instanceof Error ? error.message : "Save failed",
       });
+      setAvatarState("error");
+      setAvatarEmotion("concerned");
     }
   }
 
   async function handleMemoryDelete(id: string) {
     setStatus({ tone: "busy", text: "Deleting memory" });
+    setAvatarState("warning");
     try {
       await deleteMemory(id);
       await refreshMemory();
       setStatus({ tone: "ok", text: "Memory deleted" });
+      setAvatarState("confirming");
+      setAvatarEmotion("calm");
     } catch (error) {
       setStatus({
         tone: "error",
         text: error instanceof Error ? error.message : "Delete failed",
       });
+      setAvatarState("error");
+      setAvatarEmotion("concerned");
     }
   }
 
@@ -243,6 +294,13 @@ export function App() {
 
   return (
     <main className="app-shell">
+      <AvatarPanel
+        state={avatarState}
+        emotion={avatarEmotion}
+        speechInputAvailable={speechInputAvailable}
+        speechOutputEnabled={speechOutputEnabled}
+      />
+
       <section className="workspace">
         <header className="topbar">
           <div>
