@@ -17,6 +17,7 @@ def test_personality_loader_reads_profile(tmp_path) -> None:
         "language": "id",
         "tone": "calm",
         "verbosity": "medium",
+        "persona_notes": ["Primary user is Aru."],
         "style_rules": ["Separate facts from assumptions."],
         "safety_rules": ["Ask before risky actions."],
     }
@@ -28,6 +29,7 @@ def test_personality_loader_reads_profile(tmp_path) -> None:
     prompt = build_system_prompt(loaded)
 
     assert loaded.name == "Violet"
+    assert "Primary user is Aru." in prompt
     assert "Separate facts from assumptions." in prompt
     assert "Ask before risky actions." in prompt
 
@@ -35,4 +37,3 @@ def test_personality_loader_reads_profile(tmp_path) -> None:
 def test_personality_loader_raises_for_missing_profile(tmp_path) -> None:
     with pytest.raises(FileNotFoundError):
         PersonalityLoader(tmp_path).load("missing")
-

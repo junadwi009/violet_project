@@ -35,6 +35,14 @@ export type ChatResponse = {
   tool_requests: unknown[];
 };
 
+export type PersonalityProfile = {
+  id: string;
+  name: string;
+  tone: string;
+  verbosity: string;
+  language: string;
+};
+
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ??
   "http://127.0.0.1:8000";
@@ -62,15 +70,23 @@ async function requestJson<T>(
 export async function sendChat(
   content: string,
   sessionId: string | null,
+  personalityId: string,
 ): Promise<ChatResponse> {
   return requestJson<ChatResponse>("/api/chat", {
     method: "POST",
     body: JSON.stringify({
       content,
       session_id: sessionId,
-      personality_id: "violet.default",
+      personality_id: personalityId,
     }),
   });
+}
+
+export async function fetchPersonalities(): Promise<PersonalityProfile[]> {
+  const result = await requestJson<{ items: PersonalityProfile[] }>(
+    "/api/personalities",
+  );
+  return result.items;
 }
 
 export async function fetchMemoryCandidates(): Promise<MemoryCandidate[]> {
@@ -124,4 +140,3 @@ export async function deleteMemory(id: string): Promise<void> {
 }
 
 export { apiBaseUrl };
-

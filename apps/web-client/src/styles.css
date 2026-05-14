@@ -20,6 +20,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -295,6 +296,34 @@ button:disabled {
   margin: 6px 0 0;
   color: #67727d;
   font-size: 13px;
+}
+
+.persona-select {
+  display: grid;
+  gap: 6px;
+  min-width: 188px;
+}
+
+.persona-select span {
+  color: #67727d;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.persona-select select {
+  min-height: 38px;
+  border: 1px solid #cfc8bb;
+  border-radius: 8px;
+  background: #fffdfa;
+  color: #182027;
+  outline: none;
+  padding: 7px 10px;
+}
+
+.persona-select select:focus {
+  border-color: #397f88;
+  box-shadow: 0 0 0 3px rgba(57, 127, 136, 0.16);
 }
 
 .status {

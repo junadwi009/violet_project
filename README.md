@@ -15,6 +15,7 @@ Violet AI is a local-first personal assistant project. This repository currently
 - Mock LLM provider as the default.
 - OpenAI-compatible provider for Ollama, LM Studio, vLLM, or cloud endpoints when configured.
 - JSON personality profile loading.
+- Personality selector with `violet.default` and `violet.devoted_strategist`.
 - SQLite schema for sessions, messages, memories, memory candidates, gesture events, and tool audit logs.
 - Basic tests for core behavior.
 
@@ -128,6 +129,22 @@ Approved memories can be listed at:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/api/memory
+```
+
+## Personalities
+
+Personality profiles live in:
+
+```text
+configs/personality/
+```
+
+The included `violet.devoted_strategist` profile is a safe interpretation of the Devoted Strategist concept: deeply loyal and elegant toward Aru, strategically sharp toward markets and competitors, but still bound by truthfulness, consent, and lawful conduct.
+
+List available profiles:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/personalities
 ```
 
 ## Use Ollama Or Another OpenAI-Compatible Endpoint

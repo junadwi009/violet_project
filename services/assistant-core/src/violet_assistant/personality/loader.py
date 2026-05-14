@@ -12,6 +12,7 @@ class PersonalityProfile(BaseModel):
     language: str = "id"
     tone: str = "calm, strategic, loyal, direct"
     verbosity: str = "medium"
+    persona_notes: list[str] = Field(default_factory=list)
     style_rules: list[str] = Field(default_factory=list)
     safety_rules: list[str] = Field(default_factory=list)
 
@@ -40,6 +41,7 @@ class PersonalityLoader:
 
 
 def build_system_prompt(profile: PersonalityProfile) -> str:
+    persona_notes = "\n".join(f"- {note}" for note in profile.persona_notes)
     style_rules = "\n".join(f"- {rule}" for rule in profile.style_rules)
     safety_rules = "\n".join(f"- {rule}" for rule in profile.safety_rules)
     return (
@@ -47,7 +49,7 @@ def build_system_prompt(profile: PersonalityProfile) -> str:
         f"Language: {profile.language}\n"
         f"Tone: {profile.tone}\n"
         f"Verbosity: {profile.verbosity}\n\n"
+        f"Persona notes:\n{persona_notes or '- No additional persona notes.'}\n\n"
         f"Style rules:\n{style_rules or '- Use clear, helpful answers.'}\n\n"
         f"Safety rules:\n{safety_rules or '- Ask before risky actions.'}"
     )
-

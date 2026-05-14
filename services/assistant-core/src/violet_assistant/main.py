@@ -11,6 +11,7 @@ from violet_assistant.personality.loader import PersonalityLoader
 from violet_assistant.routes.chat import create_chat_router
 from violet_assistant.routes.health import create_health_router
 from violet_assistant.routes.memory import create_memory_router
+from violet_assistant.routes.personality import create_personality_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -49,6 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(create_health_router(active_settings, provider, personality_loader))
+    app.include_router(create_personality_router(personality_loader))
     app.include_router(create_chat_router(orchestrator))
     app.include_router(create_memory_router(store))
     return app

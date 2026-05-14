@@ -18,11 +18,13 @@ import {
   ChatMessage,
   Memory,
   MemoryCandidate,
+  PersonalityProfile,
   apiBaseUrl,
   approveMemoryCandidate,
   deleteMemory,
   fetchMemories,
   fetchMemoryCandidates,
+  fetchPersonalities,
   rejectMemoryCandidate,
   sendChat,
   updateMemory,
@@ -58,6 +60,8 @@ export function App() {
     tone: "idle",
     text: "Ready",
   });
+  const [personalities, setPersonalities] = useState<PersonalityProfile[]>([]);
+  const [personalityId, setPersonalityId] = useState("violet.default");
   const [candidates, setCandidates] = useState<MemoryCandidate[]>([]);
   const [memories, setMemories] = useState<Memory[]>([]);
   const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer>>(null);
@@ -76,9 +80,19 @@ export function App() {
   }
 
   useEffect(() => {
-    refreshMemory().catch((error: Error) => {
-      setStatus({ tone: "error", text: error.message });
-    });
+    Promise.all([refreshMemory(), fetchPersonalities()])
+      .then(([, nextPersonalities]) => {
+        setPersonalities(nextPersonalities);
+        if (
+          nextPersonalities.length > 0 &&
+          !nextPersonalities.some((profile) => profile.id === personalityId)
+        ) {
+          setPersonalityId(nextPersonalities[0].id);
+        }
+      })
+      .catch((error: Error) => {
+        setStatus({ tone: "error", text: error.message });
+      });
   }, []);
 
   async function handleSubmit(event: FormEvent) {
@@ -100,7 +114,7 @@ export function App() {
     setAvatarEmotion("focused");
 
     try {
-      const response = await sendChat(content, sessionId);
+      const response = await sendChat(content, sessionId, personalityId);
       const nextEmotion = normalizeEmotion(response.emotion);
       setSessionId(response.session_id);
       setAvatarEmotion(nextEmotion);
@@ -307,6 +321,25 @@ export function App() {
             <h1>Violet</h1>
             <p>{sessionLabel}</p>
           </div>
+          <label className="persona-select">
+            <span>Persona</span>
+            <select
+              value={personalityId}
+              onChange={(event) => setPersonalityId(event.target.value)}
+            >
+              {personalities.length === 0 ? (
+                <option value="violet.default">Violet Default</option>
+              ) : (
+                personalities.map((profile) => (
+                  <option value={profile.id} key={profile.id}>
+                    {profile.id === "violet.devoted_strategist"
+                      ? "Devoted Strategist"
+                      : profile.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
           <div className={`status ${status.tone}`}>{status.text}</div>
         </header>
 
