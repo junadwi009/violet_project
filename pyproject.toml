@@ -19,10 +19,22 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["services/assistant-core/src"]
+where = [
+  "services/assistant-core/src",
+  "services/speech-service/src",
+  "services/tts-service/src",
+]
 
 [tool.pytest.ini_options]
-pythonpath = ["services/assistant-core/src"]
-testpaths = ["services/assistant-core/tests"]
+pythonpath = [
+  "services/assistant-core/src",
+  "services/speech-service/src",
+  "services/tts-service/src",
+]
+testpaths = [
+  "services/assistant-core/tests",
+  "services/speech-service/tests",
+  "services/tts-service/tests",
+]
 addopts = "--basetemp=.tmp/pytest"
 cache_dir = ".tmp/pytest-cache"

@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import {
   Check,
   Database,
+  Mic,
   RefreshCw,
   Save,
   Send,
+  Square,
   Trash2,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import {
@@ -23,6 +27,13 @@ import {
   updateMemory,
   updateMemoryCandidate,
 } from "./lib/api";
+import {
+  canRecognizeSpeech,
+  canSpeak,
+  createSpeechRecognizer,
+  speakText,
+  stopSpeaking,
+} from "./lib/speech";
 
 type Status = {
   tone: "idle" | "busy" | "ok" | "error";
@@ -33,14 +44,19 @@ export function App() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [speechOutputEnabled, setSpeechOutputEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [status, setStatus] = useState<Status>({
     tone: "idle",
     text: "Ready",
   });
   const [candidates, setCandidates] = useState<MemoryCandidate[]>([]);
   const [memories, setMemories] = useState<Memory[]>([]);
+  const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer>>(null);
 
   const canSend = draft.trim().length > 0 && status.tone !== "busy";
+  const speechInputAvailable = canRecognizeSpeech();
+  const speechOutputAvailable = canSpeak();
 
   async function refreshMemory() {
     const [nextCandidates, nextMemories] = await Promise.all([
@@ -84,6 +100,9 @@ export function App() {
           content: response.text,
         },
       ]);
+      if (speechOutputEnabled) {
+        speakText(response.text);
+      }
       await refreshMemory();
       setStatus({
         tone: "ok",
@@ -98,6 +117,52 @@ export function App() {
         text: error instanceof Error ? error.message : "Request failed",
       });
     }
+  }
+
+  function handleListen() {
+    if (isListening) {
+      recognizerRef.current?.stop();
+      setIsListening(false);
+      setStatus({ tone: "idle", text: "Stopped listening" });
+      return;
+    }
+
+    const recognizer = createSpeechRecognizer(
+      (text) => {
+        if (text) {
+          setDraft((current) => (current ? `${current} ${text}` : text));
+          setStatus({ tone: "ok", text: "Transcript ready" });
+        }
+      },
+      (message) => {
+        setStatus({ tone: "error", text: `Speech input: ${message}` });
+        setIsListening(false);
+      },
+      () => {
+        setIsListening(false);
+      },
+    );
+
+    if (!recognizer) {
+      setStatus({ tone: "error", text: "Speech input unavailable" });
+      return;
+    }
+
+    recognizerRef.current = recognizer;
+    setIsListening(true);
+    setStatus({ tone: "busy", text: "Listening" });
+    recognizer.start();
+  }
+
+  function handleSpeechOutputToggle() {
+    if (speechOutputEnabled) {
+      stopSpeaking();
+      setSpeechOutputEnabled(false);
+      setStatus({ tone: "idle", text: "Speech output off" });
+      return;
+    }
+    setSpeechOutputEnabled(true);
+    setStatus({ tone: "ok", text: "Speech output on" });
   }
 
   async function handleCandidateSave(candidate: MemoryCandidate) {
@@ -207,9 +272,31 @@ export function App() {
             placeholder="Message Violet"
             rows={3}
           />
-          <button type="submit" disabled={!canSend} title="Send">
-            <Send size={18} />
-          </button>
+          <div className="composer-actions">
+            <button
+              type="button"
+              disabled={!speechInputAvailable}
+              onClick={handleListen}
+              title={isListening ? "Stop listening" : "Start speech input"}
+            >
+              {isListening ? <Square size={17} /> : <Mic size={18} />}
+            </button>
+            <button
+              type="button"
+              disabled={!speechOutputAvailable}
+              onClick={handleSpeechOutputToggle}
+              title={
+                speechOutputEnabled
+                  ? "Disable speech output"
+                  : "Enable speech output"
+              }
+            >
+              {speechOutputEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            </button>
+            <button type="submit" disabled={!canSend} title="Send">
+              <Send size={18} />
+            </button>
+          </div>
         </form>
       </section>
 

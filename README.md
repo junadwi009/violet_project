@@ -9,6 +9,8 @@ Violet AI is a local-first personal assistant project. This repository currently
 - `GET /health` health endpoint.
 - Memory candidate approval, rejection, edit, and delete endpoints.
 - React web client for chat and memory review.
+- Phase 2 mock STT/TTS service scaffolding.
+- Browser speech input and speech output controls in the web client when supported.
 - Mock LLM provider as the default.
 - OpenAI-compatible provider for Ollama, LM Studio, vLLM, or cloud endpoints when configured.
 - JSON personality profile loading.
@@ -58,6 +60,42 @@ npm run dev
 ```
 
 Open the Vite URL printed in the terminal, usually `http://127.0.0.1:5173`.
+
+The web client includes browser-native speech controls. Speech input asks for microphone access only when you press the microphone button. Speech output uses the browser speech synthesis API and does not call a paid service.
+
+## Phase 2 Mock Voice Services
+
+Run the mock STT service:
+
+```powershell
+uvicorn violet_speech.main:app --host 127.0.0.1 --port 9090
+```
+
+Run the mock TTS service:
+
+```powershell
+uvicorn violet_tts.main:app --host 127.0.0.1 --port 8020
+```
+
+Smoke test STT:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:9090/api/stt/transcribe `
+  -ContentType "application/json" `
+  -Body '{"text":"Halo Violet","language":"id"}'
+```
+
+Smoke test TTS:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8020/api/tts/synthesize `
+  -ContentType "application/json" `
+  -Body '{"text":"Halo Violet","language":"id","voice":"default"}'
+```
 
 ## Memory Review
 

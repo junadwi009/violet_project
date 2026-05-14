@@ -164,7 +164,7 @@ button:disabled {
 
 .composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 48px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   padding: 18px 28px 24px;
   border-top: 1px solid #d8d4ca;
@@ -196,7 +196,7 @@ button:disabled {
   box-shadow: 0 0 0 3px rgba(57, 127, 136, 0.16);
 }
 
-.composer button,
+.composer-actions button,
 .card-actions button,
 .icon-button {
   display: inline-flex;
@@ -209,10 +209,21 @@ button:disabled {
   color: white;
 }
 
-.composer button {
+.composer-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 48px);
+  gap: 8px;
+  width: max-content;
   align-self: end;
+}
+
+.composer-actions button {
   width: 48px;
   height: 48px;
+}
+
+.composer-actions button:nth-child(2) {
+  background: #3b5961;
 }
 
 .memory-panel {
@@ -343,5 +354,12 @@ button:disabled {
     width: 100%;
     max-width: none;
   }
-}
 
+  .composer {
+    grid-template-columns: 1fr;
+  }
+
+  .composer-actions {
+    justify-self: end;
+  }
+}
