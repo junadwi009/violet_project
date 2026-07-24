@@ -95,6 +95,26 @@ def load_candidate(path: str | Path, default_model: str) -> Agent:
     return candidate_from_text(p.read_text(encoding="utf-8"), p.parent.name, default_model)
 
 
+def install_skill(skill_md: str, imported_dir: Path, default_model: str) -> dict:
+    """Validate and write a SKILL.md into the imported-skills dir. Returns install info.
+
+    The agent registry re-reads this directory on each request, so the skill is live immediately.
+    The slug is sanitized (no path traversal) by parse_skill_md.
+    """
+    candidate = candidate_from_text(skill_md, "installed", default_model)  # validates
+    dest = Path(imported_dir) / candidate.id
+    dest.mkdir(parents=True, exist_ok=True)
+    skill_path = dest / "SKILL.md"
+    updated = skill_path.exists()
+    skill_path.write_text(skill_md, encoding="utf-8")
+    return {
+        "id": candidate.id,
+        "name": candidate.name,
+        "path": str(skill_path),
+        "updated": updated,
+    }
+
+
 def resolve_ref(ref: str, skill_registry, agent_registry, default_model: str) -> Agent | None:
     """Resolve an id to an Agent from either registry (skills wrapped as Agents for merging)."""
     agent = agent_registry.get(ref) if agent_registry else None

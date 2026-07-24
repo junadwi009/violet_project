@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
-import { X, FlaskConical, ShieldCheck, GitMerge, Copy, Loader2 } from "lucide-react";
+import {
+  X,
+  FlaskConical,
+  ShieldCheck,
+  GitMerge,
+  Copy,
+  Loader2,
+  DownloadCloud,
+} from "lucide-react";
 import {
   CheckResponse,
   LibraryItem,
   checkSkill,
   fetchSkillLibrary,
+  installSkill,
   mergeSkills,
 } from "../lib/api";
 
@@ -50,6 +59,8 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
   const [mergeName, setMergeName] = useState("");
   const [merging, setMerging] = useState(false);
   const [mergeOut, setMergeOut] = useState("");
+  const [installing, setInstalling] = useState(false);
+  const [installed, setInstalled] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -83,6 +94,7 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
     setMerging(true);
     setStatus("");
     setMergeOut("");
+    setInstalled(null);
     try {
       const r = await mergeSkills(selected, mergeName.trim());
       setMergeOut(r.skill_md);
@@ -90,6 +102,24 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
       setStatus(e instanceof Error ? e.message : "Merge failed");
     } finally {
       setMerging(false);
+    }
+  }
+
+  async function runInstall() {
+    if (!mergeOut.trim()) return;
+    setInstalling(true);
+    setStatus("");
+    try {
+      const r = await installSkill(mergeOut);
+      setInstalled(r.id);
+      // refresh the library so the new skill appears in the picker
+      fetchSkillLibrary()
+        .then((lib) => setLibrary(lib.items))
+        .catch(() => undefined);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Install failed");
+    } finally {
+      setInstalling(false);
     }
   }
 
@@ -254,14 +284,33 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
                 </button>
               </div>
               {mergeOut && (
-                <div className="relative">
-                  <button
-                    onClick={() => navigator.clipboard?.writeText(mergeOut)}
-                    className="absolute top-2 right-2 inline-flex items-center gap-1 bg-white/80 border border-navy-700/20 rounded-md px-2 py-1 text-[11px] text-steel hover:text-steel-dark"
-                  >
-                    <Copy size={12} /> Copy
-                  </button>
-                  <pre className="rounded-xl bg-steel-ice border border-navy-700/20 p-3 text-[11px] font-mono text-steel-dark whitespace-pre-wrap max-h-64 overflow-y-auto custom-scrollbar">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={runInstall}
+                      disabled={installing}
+                      className="inline-flex items-center gap-1.5 bg-steel-highlight hover:bg-steel-highlight/90 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition disabled:opacity-40"
+                    >
+                      {installing ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <DownloadCloud size={14} />
+                      )}
+                      Install skill
+                    </button>
+                    <button
+                      onClick={() => navigator.clipboard?.writeText(mergeOut)}
+                      className="inline-flex items-center gap-1 bg-white border border-navy-700/20 rounded-lg px-3 py-2 text-xs text-steel hover:text-steel-dark"
+                    >
+                      <Copy size={13} /> Copy
+                    </button>
+                    {installed && (
+                      <span className="text-xs text-emerald-700 font-medium">
+                        ✓ Installed as “{installed}” — live now
+                      </span>
+                    )}
+                  </div>
+                  <pre className="rounded-xl bg-steel-ice border border-navy-700/20 p-3 text-[11px] font-mono text-steel-dark whitespace-pre-wrap max-h-56 overflow-y-auto custom-scrollbar">
                     {mergeOut}
                   </pre>
                 </div>

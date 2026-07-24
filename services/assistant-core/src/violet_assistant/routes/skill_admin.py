@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -8,6 +10,7 @@ from violet_assistant.agents.vetting import (
     batch_report,
     build_library,
     candidate_from_text,
+    install_skill,
     judge_candidate,
     merge_skills,
     nearest_matches,
@@ -38,11 +41,16 @@ class BatchRequest(BaseModel):
     judge: bool = False
 
 
+class InstallRequest(BaseModel):
+    skill_md: str = Field(min_length=20, max_length=60000)
+
+
 def create_skill_admin_router(
     skill_registry: SkillRegistry,
     agent_registry: AgentRegistry,
     provider: LLMProvider | None,
     default_model: str,
+    imported_dir: Path,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -104,6 +112,13 @@ def create_skill_admin_router(
             [a for a in resolved if a is not None], request.name, provider, default_model
         )
         return {"skill_md": skill_md}
+
+    @router.post("/api/skills/install")
+    async def install(request: InstallRequest) -> dict:
+        try:
+            return install_skill(request.skill_md, imported_dir, default_model)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @router.post("/api/skills/batch")
     async def batch(request: BatchRequest) -> dict:

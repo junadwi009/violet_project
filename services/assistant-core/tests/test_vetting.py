@@ -73,6 +73,36 @@ def test_batch_report_flags_installed_and_duplicates() -> None:
     assert by_id["charts"]["installed"] is False
 
 
+def test_install_skill_writes_and_is_loadable(tmp_path) -> None:
+    from violet_assistant.agents.registry import AgentRegistry
+    from violet_assistant.agents.vetting import install_skill
+
+    imported = tmp_path / "agents" / "imported"
+    md = (
+        "---\nname: Summarizer\ndescription: Summarize text.\ntriggers: summarize\n---\n"
+        "You produce faithful, concise summaries of the input text."
+    )
+    result = install_skill(md, imported, default_model="hermes")
+    assert result["id"] == "summarizer"
+    assert result["updated"] is False
+    assert (imported / "summarizer" / "SKILL.md").exists()
+
+    # the agents dir now contains it -> registry loads it (live)
+    reg = AgentRegistry(tmp_path / "agents", default_model="hermes")
+    assert reg.get("summarizer") is not None
+    assert reg.detect("please summarize this").id == "summarizer"
+
+    # re-install marks updated
+    assert install_skill(md, imported, "hermes")["updated"] is True
+
+
+def test_install_skill_rejects_invalid(tmp_path) -> None:
+    from violet_assistant.agents.vetting import install_skill
+
+    with pytest.raises(ValueError):
+        install_skill("---\nname: X\ndescription: y\n---\n", tmp_path, "m")
+
+
 def test_load_candidate_rejects_empty(tmp_path) -> None:
     p = tmp_path / "SKILL.md"
     p.write_text("---\nname: Empty\ndescription: nothing\n---\n", encoding="utf-8")

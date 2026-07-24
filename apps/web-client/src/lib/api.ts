@@ -203,6 +203,15 @@ export async function mergeSkills(
   });
 }
 
+export async function installSkill(
+  skillMd: string,
+): Promise<{ id: string; name: string; path: string; updated: boolean }> {
+  return requestJson("/api/skills/install", {
+    method: "POST",
+    body: JSON.stringify({ skill_md: skillMd }),
+  });
+}
+
 export async function fetchPersonalities(): Promise<PersonalityProfile[]> {
   const result = await requestJson<{ items: PersonalityProfile[] }>(
     "/api/personalities",

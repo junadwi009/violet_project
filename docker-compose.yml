@@ -30,6 +30,8 @@ services:
     volumes:
       - violet-data:/app/data
       - ./memory:/app/memory
+      # Persist skills installed at runtime (Skill Lab "Install") to the host repo.
+      - ./configs/agents/imported:/app/configs/agents/imported
     ports:
       - "8000:8000" # direct API access + /docs (optional; the web app uses the proxy)
     extra_hosts:

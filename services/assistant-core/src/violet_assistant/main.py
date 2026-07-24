@@ -151,7 +151,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
     app.include_router(
         create_skill_admin_router(
-            skill_registry, agent_registry, admin_provider, active_settings.agent_default_model
+            skill_registry,
+            agent_registry,
+            admin_provider,
+            active_settings.agent_default_model,
+            imported_dir=agents_dir / "imported",
         )
     )
     return app
