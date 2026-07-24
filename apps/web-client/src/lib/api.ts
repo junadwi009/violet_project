@@ -49,8 +49,15 @@ export type ProviderInfo = {
   active: boolean;
 };
 
+export type RouterInfo = {
+  mode: string;
+  persona_model?: string;
+  technical_model?: string;
+};
+
 export type ProvidersResponse = {
   active: string;
+  router?: RouterInfo;
   items: ProviderInfo[];
 };
 

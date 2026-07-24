@@ -16,10 +16,12 @@ class OpenAICompatibleProvider:
         base_url: str,
         api_key: str | None = None,
         timeout_seconds: float = 120,
+        default_headers: dict[str, str] | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.timeout_seconds = timeout_seconds
+        self.default_headers = default_headers or {}
 
     async def chat(
         self, messages: Sequence[Message], options: LLMOptions
@@ -60,7 +62,7 @@ class OpenAICompatibleProvider:
         self, method: str, path: str, payload: dict | None
     ) -> dict:
         body = None if payload is None else json.dumps(payload).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json", **self.default_headers}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 

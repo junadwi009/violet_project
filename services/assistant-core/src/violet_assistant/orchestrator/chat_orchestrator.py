@@ -3,8 +3,9 @@ from __future__ import annotations
 from uuid import uuid4
 
 from violet_assistant.config import Settings
-from violet_assistant.llm.base import LLMOptions, LLMProvider, Message
+from violet_assistant.llm.base import LLMOptions, LLMProvider, LLMResponse, Message
 from violet_assistant.memory.extractor import extract_memory_candidates
+from violet_assistant.orchestrator.cascade import CascadeResponder
 from violet_assistant.persistence.sqlite_store import SQLiteStore
 from violet_assistant.personality.loader import PersonalityLoader, build_system_prompt
 from violet_assistant.rag.base import Retriever
@@ -21,6 +22,7 @@ class ChatOrchestrator:
         store: SQLiteStore,
         retriever: Retriever | None = None,
         provider_registry: dict[str, LLMProvider] | None = None,
+        cascade: CascadeResponder | None = None,
     ) -> None:
         self.settings = settings
         self.provider = provider
@@ -28,6 +30,7 @@ class ChatOrchestrator:
         self.store = store
         self.retriever = retriever or NoOpRetriever()
         self.provider_registry = provider_registry or {}
+        self.cascade = cascade
 
     def _select_provider(self, requested: str | None) -> LLMProvider:
         if requested and requested in self.provider_registry:
@@ -64,17 +67,19 @@ class ChatOrchestrator:
             ),
             *history,
         ]
-        provider = self._select_provider(request.provider)
-        llm_response = await provider.chat(
-            messages,
-            LLMOptions(
-                model=self.settings.llm_model,
-                metadata={
-                    "personality_id": profile.id,
-                    "personality_name": profile.name,
-                },
-            ),
+        base_options = LLMOptions(
+            model=self.settings.llm_model,
+            metadata={
+                "personality_id": profile.id,
+                "personality_name": profile.name,
+            },
         )
+        if self.cascade is not None and request.provider != "mock":
+            result = await self.cascade.respond(messages, base_options)
+            llm_response = LLMResponse(text=result.text, emotion=result.emotion)
+        else:
+            provider = self._select_provider(request.provider)
+            llm_response = await provider.chat(messages, base_options)
         assistant_message_id = self.store.add_message(
             session_id=session_id,
             role="assistant",

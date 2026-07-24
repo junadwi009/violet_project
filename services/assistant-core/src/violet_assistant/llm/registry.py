@@ -45,8 +45,13 @@ def describe_providers(settings: Settings) -> dict:
     """Payload for ``GET /api/providers``."""
     active = default_provider_name(settings)
     registry = build_provider_registry(settings)
+    router: dict = {"mode": settings.llm_router}
+    if settings.llm_router == "cascade":
+        router["persona_model"] = settings.persona_model
+        router["technical_model"] = settings.technical_model
     return {
         "active": active,
+        "router": router,
         "items": [
             {
                 "id": name,

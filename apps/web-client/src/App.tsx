@@ -7,6 +7,7 @@ import {
   MemoryInfo,
   PersonalityProfile,
   ProviderInfo,
+  RouterInfo,
   SessionSummary,
   approveMemoryCandidate,
   deleteMemory,
@@ -69,6 +70,7 @@ export function App() {
   const [memoryInfo, setMemoryInfo] = useState<MemoryInfo | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [selectedProvider, setSelectedProvider] = useState("mock");
+  const [routerInfo, setRouterInfo] = useState<RouterInfo | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
@@ -129,6 +131,7 @@ export function App() {
         }
         setProviders(providerResponse.items);
         setSelectedProvider(providerResponse.active);
+        setRouterInfo(providerResponse.router ?? null);
         setSessions(nextSessions);
       })
       .catch((error: Error) => setStatus({ tone: "error", text: error.message }));
@@ -464,6 +467,7 @@ export function App() {
         providers={providers}
         selectedProvider={selectedProvider}
         onSelectProvider={setSelectedProvider}
+        router={routerInfo}
       />
 
       <HelpModal

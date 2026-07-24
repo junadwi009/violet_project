@@ -48,6 +48,16 @@ class Settings:
     memory_auto_save: bool
     memory_require_approval: bool
     log_level: str
+    # Multi-layer routing (Phase 2). Defaults keep existing single-provider behavior.
+    llm_router: str = "single"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_api_key: str | None = None
+    persona_base_url: str = "https://openrouter.ai/api/v1"
+    persona_model: str = "nousresearch/hermes-4-70b"
+    persona_api_key: str | None = None
+    technical_base_url: str = "https://openrouter.ai/api/v1"
+    technical_model: str = "deepseek/deepseek-chat-v3.1"
+    technical_api_key: str | None = None
 
 
 def load_settings(repo_root: Path | None = None) -> Settings:
@@ -66,6 +76,29 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         llm_model=os.getenv("LLM_MODEL", "local-model"),
         llm_timeout_seconds=float(os.getenv("LLM_TIMEOUT_SECONDS", "120")),
         llm_api_key=os.getenv("LLM_API_KEY") or None,
+        llm_router=os.getenv("LLM_ROUTER", "single").strip().lower(),
+        openrouter_base_url=os.getenv(
+            "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+        ),
+        openrouter_api_key=os.getenv("OPENROUTER_API_KEY") or None,
+        persona_base_url=os.getenv(
+            "PERSONA_BASE_URL",
+            os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        ),
+        persona_model=os.getenv("PERSONA_MODEL", "nousresearch/hermes-4-70b"),
+        persona_api_key=os.getenv("PERSONA_API_KEY")
+        or os.getenv("OPENROUTER_API_KEY")
+        or None,
+        technical_base_url=os.getenv(
+            "TECHNICAL_BASE_URL",
+            os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        ),
+        technical_model=os.getenv(
+            "TECHNICAL_MODEL", "deepseek/deepseek-chat-v3.1"
+        ),
+        technical_api_key=os.getenv("TECHNICAL_API_KEY")
+        or os.getenv("OPENROUTER_API_KEY")
+        or None,
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),

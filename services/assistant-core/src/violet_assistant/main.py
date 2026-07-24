@@ -11,6 +11,7 @@ from violet_assistant.memory.store.factory import (
     migrate_sqlite_memories_to_files,
 )
 from violet_assistant.memory.store.file_store import FileApprovedMemoryStore
+from violet_assistant.orchestrator.cascade import CascadeResponder, build_layer_configs
 from violet_assistant.orchestrator.chat_orchestrator import ChatOrchestrator
 from violet_assistant.persistence.sqlite_store import SQLiteStore
 from violet_assistant.personality.loader import PersonalityLoader
@@ -41,6 +42,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     provider = create_llm_provider(active_settings)
     retriever = create_retriever(active_settings)
     provider_registry = build_provider_registry(active_settings)
+
+    cascade = None
+    if active_settings.llm_router == "cascade":
+        persona, technical = build_layer_configs(active_settings)
+        cascade = CascadeResponder(
+            persona=persona,
+            technical=technical,
+            timeout_seconds=active_settings.llm_timeout_seconds,
+        )
+
     orchestrator = ChatOrchestrator(
         settings=active_settings,
         provider=provider,
@@ -48,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         store=store,
         retriever=retriever,
         provider_registry=provider_registry,
+        cascade=cascade,
     )
 
     app = FastAPI(title="Violet Assistant Core", version="0.1.0")

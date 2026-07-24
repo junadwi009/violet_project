@@ -12,6 +12,12 @@ services:
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
       LLM_MODEL: ${LLM_MODEL:-local-model}
+      # Multi-layer routing (passed at runtime from your .env; the key is never baked into the image).
+      LLM_ROUTER: ${LLM_ROUTER:-single}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      PERSONA_MODEL: ${PERSONA_MODEL:-nousresearch/hermes-4-70b}
+      TECHNICAL_MODEL: ${TECHNICAL_MODEL:-deepseek/deepseek-chat-v3.1}
       DATABASE_URL: sqlite:////app/data/violet.db
       # Approved memories are markdown files under MEMORY_DIR, bind-mounted below to a host
       # folder (./memory) so you can manage them directly / sync them to a VPS or Google Drive.

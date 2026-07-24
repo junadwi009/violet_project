@@ -1,5 +1,5 @@
-import { X, SlidersHorizontal } from "lucide-react";
-import { PersonalityProfile, ProviderInfo } from "../lib/api";
+import { X, SlidersHorizontal, Layers } from "lucide-react";
+import { PersonalityProfile, ProviderInfo, RouterInfo } from "../lib/api";
 
 type SettingsModalProps = {
   open: boolean;
@@ -10,6 +10,7 @@ type SettingsModalProps = {
   providers: ProviderInfo[];
   selectedProvider: string;
   onSelectProvider: (id: string) => void;
+  router: RouterInfo | null;
 };
 
 function personaLabel(profile: PersonalityProfile): string {
@@ -26,6 +27,7 @@ export function SettingsModal({
   providers,
   selectedProvider,
   onSelectProvider,
+  router,
 }: SettingsModalProps) {
   if (!open) return null;
   return (
@@ -76,6 +78,33 @@ export function SettingsModal({
               ))}
             </div>
           </div>
+
+          {router && router.mode === "cascade" && (
+            <div>
+              <label className="block text-xs font-semibold text-steel uppercase tracking-wider mb-2">
+                Routing · cascade
+              </label>
+              <div className="space-y-1.5 p-3 bg-steel-ice rounded-xl border border-navy-700/20">
+                <div className="flex items-center gap-2 text-xs text-steel-dark">
+                  <Layers size={13} className="text-steel-highlight shrink-0" />
+                  <span className="font-medium">Persona</span>
+                  <span className="ml-auto font-mono text-[11px] text-steel truncate max-w-[190px]">
+                    {router.persona_model}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-steel-dark">
+                  <Layers size={13} className="text-steel/50 shrink-0" />
+                  <span className="font-medium">Technical</span>
+                  <span className="ml-auto font-mono text-[11px] text-steel truncate max-w-[190px]">
+                    {router.technical_model}
+                  </span>
+                </div>
+                <p className="text-[10px] text-steel/60 pt-1">
+                  Persona answers; delegates heavy calc/code to the technical layer on demand.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-steel uppercase tracking-wider mb-2">
