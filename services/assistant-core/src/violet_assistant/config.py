@@ -42,6 +42,7 @@ class Settings:
     llm_timeout_seconds: float
     llm_api_key: str | None
     personality_config_dir: Path
+    rag_provider: str
     memory_auto_save: bool
     memory_require_approval: bool
     log_level: str
@@ -66,6 +67,7 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),
+        rag_provider=os.getenv("RAG_PROVIDER", "none").strip().lower(),
         memory_auto_save=_env_bool("MEMORY_AUTO_SAVE", False),
         memory_require_approval=_env_bool("MEMORY_REQUIRE_APPROVAL", True),
         log_level=os.getenv("LOG_LEVEL", "info"),

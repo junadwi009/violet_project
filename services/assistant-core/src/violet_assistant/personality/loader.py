@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -40,11 +41,13 @@ class PersonalityLoader:
         ]
 
 
-def build_system_prompt(profile: PersonalityProfile) -> str:
+def build_system_prompt(
+    profile: PersonalityProfile, context: Sequence[str] | None = None
+) -> str:
     persona_notes = "\n".join(f"- {note}" for note in profile.persona_notes)
     style_rules = "\n".join(f"- {rule}" for rule in profile.style_rules)
     safety_rules = "\n".join(f"- {rule}" for rule in profile.safety_rules)
-    return (
+    prompt = (
         f"You are {profile.name}, a local-first personal assistant.\n"
         f"Language: {profile.language}\n"
         f"Tone: {profile.tone}\n"
@@ -53,3 +56,12 @@ def build_system_prompt(profile: PersonalityProfile) -> str:
         f"Style rules:\n{style_rules or '- Use clear, helpful answers.'}\n\n"
         f"Safety rules:\n{safety_rules or '- Ask before risky actions.'}"
     )
+
+    passages = [text for text in (context or []) if text and text.strip()]
+    if passages:
+        joined = "\n".join(f"- {text}" for text in passages)
+        prompt += (
+            "\n\nRetrieved context (use only if relevant; do not invent facts):\n"
+            f"{joined}"
+        )
+    return prompt

@@ -79,6 +79,39 @@ class SQLiteStore:
             )
         return message_id
 
+    def list_sessions(self) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                  s.id,
+                  s.title,
+                  s.created_at,
+                  s.updated_at,
+                  (
+                    SELECT COUNT(*)
+                    FROM messages m
+                    WHERE m.session_id = s.id
+                  ) AS message_count
+                FROM sessions s
+                ORDER BY s.updated_at DESC, s.rowid DESC
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def messages_for_session(self, session_id: str) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, role, content, created_at
+                FROM messages
+                WHERE session_id = ?
+                ORDER BY rowid ASC
+                """,
+                (session_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def recent_messages(self, session_id: str, limit: int = 20) -> list[Message]:
         with self._connect() as connection:
             rows = connection.execute(

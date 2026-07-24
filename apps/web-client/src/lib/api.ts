@@ -43,6 +43,32 @@ export type PersonalityProfile = {
   language: string;
 };
 
+export type ProviderInfo = {
+  id: string;
+  label: string;
+  active: boolean;
+};
+
+export type ProvidersResponse = {
+  active: string;
+  items: ProviderInfo[];
+};
+
+export type SessionSummary = {
+  id: string;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+};
+
+export type SessionMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+};
+
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ??
   "http://127.0.0.1:8000";
@@ -71,6 +97,7 @@ export async function sendChat(
   content: string,
   sessionId: string | null,
   personalityId: string,
+  provider?: string | null,
 ): Promise<ChatResponse> {
   return requestJson<ChatResponse>("/api/chat", {
     method: "POST",
@@ -78,6 +105,7 @@ export async function sendChat(
       content,
       session_id: sessionId,
       personality_id: personalityId,
+      provider: provider ?? null,
     }),
   });
 }
@@ -85,6 +113,24 @@ export async function sendChat(
 export async function fetchPersonalities(): Promise<PersonalityProfile[]> {
   const result = await requestJson<{ items: PersonalityProfile[] }>(
     "/api/personalities",
+  );
+  return result.items;
+}
+
+export async function fetchProviders(): Promise<ProvidersResponse> {
+  return requestJson<ProvidersResponse>("/api/providers");
+}
+
+export async function fetchSessions(): Promise<SessionSummary[]> {
+  const result = await requestJson<{ items: SessionSummary[] }>("/api/sessions");
+  return result.items;
+}
+
+export async function fetchSessionMessages(
+  sessionId: string,
+): Promise<SessionMessage[]> {
+  const result = await requestJson<{ items: SessionMessage[] }>(
+    `/api/sessions/${sessionId}/messages`,
   );
   return result.items;
 }

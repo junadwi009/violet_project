@@ -50,6 +50,7 @@ def _settings(tmp_path: Path, personality_dir: Path) -> Settings:
         llm_timeout_seconds=1,
         llm_api_key=None,
         personality_config_dir=personality_dir,
+        rag_provider="none",
         memory_auto_save=False,
         memory_require_approval=True,
         log_level="debug",

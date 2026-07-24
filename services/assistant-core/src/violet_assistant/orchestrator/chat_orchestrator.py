@@ -7,6 +7,8 @@ from violet_assistant.llm.base import LLMOptions, LLMProvider, Message
 from violet_assistant.memory.extractor import extract_memory_candidates
 from violet_assistant.persistence.sqlite_store import SQLiteStore
 from violet_assistant.personality.loader import PersonalityLoader, build_system_prompt
+from violet_assistant.rag.base import Retriever
+from violet_assistant.rag.no_op_retriever import NoOpRetriever
 from violet_assistant.schemas.chat import ChatRequest, ChatResponse
 
 
@@ -17,11 +19,20 @@ class ChatOrchestrator:
         provider: LLMProvider,
         personality_loader: PersonalityLoader,
         store: SQLiteStore,
+        retriever: Retriever | None = None,
+        provider_registry: dict[str, LLMProvider] | None = None,
     ) -> None:
         self.settings = settings
         self.provider = provider
         self.personality_loader = personality_loader
         self.store = store
+        self.retriever = retriever or NoOpRetriever()
+        self.provider_registry = provider_registry or {}
+
+    def _select_provider(self, requested: str | None) -> LLMProvider:
+        if requested and requested in self.provider_registry:
+            return self.provider_registry[requested]
+        return self.provider
 
     async def chat(self, request: ChatRequest) -> ChatResponse:
         profile = self.personality_loader.load(request.personality_id)
@@ -42,12 +53,19 @@ class ChatOrchestrator:
         candidates = extract_memory_candidates(request.content, user_message_id)
         self.store.add_memory_candidates(candidates)
 
+        retrieved = await self.retriever.retrieve(request.content)
+        context = [chunk.text for chunk in retrieved]
+
         history = self.store.recent_messages(session_id)
         messages = [
-            Message(role="system", content=build_system_prompt(profile)),
+            Message(
+                role="system",
+                content=build_system_prompt(profile, context=context),
+            ),
             *history,
         ]
-        llm_response = await self.provider.chat(
+        provider = self._select_provider(request.provider)
+        llm_response = await provider.chat(
             messages,
             LLMOptions(
                 model=self.settings.llm_model,

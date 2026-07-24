@@ -15,6 +15,7 @@ class ChatRequest(BaseModel):
     input_type: Literal["text"] = "text"
     content: str = Field(min_length=1, max_length=12000)
     personality_id: str = "violet.default"
+    provider: str | None = None
     context: ChatContext = Field(default_factory=ChatContext)
 
 
