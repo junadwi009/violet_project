@@ -72,6 +72,8 @@ class Settings:
     agents_config_dir: Path | None = None
     agent_base_url: str = "https://openrouter.ai/api/v1"
     agent_api_key: str | None = None
+    # Model used for imported SKILL.md agents (they don't specify a model).
+    agent_default_model: str = "nousresearch/hermes-4-70b"
 
 
 def load_settings(repo_root: Path | None = None) -> Settings:
@@ -143,6 +145,9 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         agent_api_key=os.getenv("AGENT_API_KEY")
         or os.getenv("OPENROUTER_API_KEY")
         or None,
+        agent_default_model=os.getenv(
+            "AGENT_DEFAULT_MODEL", "nousresearch/hermes-4-70b"
+        ),
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),

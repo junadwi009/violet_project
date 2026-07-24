@@ -143,6 +143,45 @@ def test_mock_bypasses_agents_and_skills(tmp_path) -> None:
     assert r.text.startswith("Violet mock response")
 
 
+def test_parse_skill_md() -> None:
+    from violet_assistant.agents.skillmd import parse_skill_md
+
+    text = (
+        "---\n"
+        "name: PDF Filler\n"
+        "description: Fill PDF forms from data.\n"
+        "triggers: fill pdf, pdf form\n"
+        "---\n"
+        "# PDF Filler\n\nYou fill PDF forms accurately from the provided data."
+    )
+    agent = parse_skill_md(text, fallback_id="folder", default_model="default-model")
+    assert agent.id == "pdf-filler"
+    assert agent.name == "PDF Filler"
+    assert agent.model == "default-model"
+    assert "fill PDF forms accurately" in agent.system_prompt
+    assert "pdf form" in agent.triggers
+    assert "pdf filler" in agent.triggers  # name is always a trigger
+
+
+def test_registry_loads_imported_skill_md(tmp_path) -> None:
+    d = _write(
+        tmp_path,
+        {"id": "coder", "name": "Coder", "model": "m", "system_prompt": "p", "triggers": ["write code"]},
+    )
+    imported = d / "imported" / "standup"
+    imported.mkdir(parents=True)
+    (imported / "SKILL.md").write_text(
+        "---\nname: Standup\ndescription: daily update\ntriggers: standup\n---\nMake a standup.",
+        encoding="utf-8",
+    )
+    registry = AgentRegistry(d, default_model="hermes")
+    ids = {a.id for a in registry.list_agents()}
+    assert {"coder", "standup"} <= ids
+    standup = registry.get("standup")
+    assert standup.model == "hermes"  # imported skills use the default model
+    assert registry.detect("give me a standup").id == "standup"
+
+
 def test_runner_uses_agent_model_and_prompt() -> None:
     provider = RecordingProvider()
     runner = AgentRunner(

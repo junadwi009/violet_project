@@ -4,19 +4,36 @@ import json
 from pathlib import Path
 
 from violet_assistant.agents.schema import Agent
+from violet_assistant.agents.skillmd import parse_skill_md
 
 
 class AgentRegistry:
-    def __init__(self, config_dir: Path) -> None:
+    def __init__(
+        self, config_dir: Path, default_model: str = "nousresearch/hermes-4-70b"
+    ) -> None:
         self.config_dir = config_dir
+        self.default_model = default_model
 
     def list_agents(self) -> list[Agent]:
         if not self.config_dir.exists():
             return []
         agents: list[Agent] = []
+        # Native Violet agents (JSON).
         for path in sorted(self.config_dir.glob("*.json")):
             try:
                 agents.append(Agent.model_validate(json.loads(path.read_text(encoding="utf-8"))))
+            except (ValueError, KeyError):
+                continue
+        # Imported Anthropic-format skills: any SKILL.md under the agents dir (e.g. imported/<name>/SKILL.md).
+        for path in sorted(self.config_dir.rglob("SKILL.md")):
+            try:
+                agents.append(
+                    parse_skill_md(
+                        path.read_text(encoding="utf-8"),
+                        fallback_id=path.parent.name,
+                        default_model=self.default_model,
+                    )
+                )
             except (ValueError, KeyError):
                 continue
         return agents

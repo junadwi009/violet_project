@@ -92,7 +92,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     agents_dir = active_settings.agents_config_dir or (
         active_settings.repo_root / "configs" / "agents"
     )
-    agent_registry = AgentRegistry(agents_dir)
+    agent_registry = AgentRegistry(
+        agents_dir, default_model=active_settings.agent_default_model
+    )
     agent_runner = None
     if active_settings.agent_api_key:
         agent_runner = AgentRunner(
