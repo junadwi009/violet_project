@@ -22,8 +22,15 @@ class SkillRegistry:
         return skills
 
     def detect(self, text: str) -> Skill | None:
-        """Return the first skill whose triggers match the text (rule-based, zero-cost)."""
+        """Return the best-matching skill (most specific / longest trigger). None if no match.
+
+        Rule-based and zero-cost. Ties break by filename order (stable via list_skills sort).
+        """
+        best: Skill | None = None
+        best_score = 0
         for skill in self.list_skills():
-            if skill.matches(text):
-                return skill
-        return None
+            score = skill.match_score(text)
+            if score > best_score:
+                best_score = score
+                best = skill
+        return best

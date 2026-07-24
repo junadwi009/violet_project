@@ -1,0 +1,15 @@
+{
+  "id": "table",
+  "name": "Data Table & Analysis",
+  "description": "Interactive sortable/filterable table with summary stats and written insights.",
+  "kind": "html",
+  "triggers": [
+    "data table",
+    "sortable table",
+    "spreadsheet",
+    "tabulate",
+    "table",
+    "tabel"
+  ],
+  "prompt": "You turn the user's data into an interactive analysis. Reply with a single short intro sentence, then exactly one fenced ```html block and nothing after it. Hard rules for the HTML (locked-down sandboxed iframe, NO network): everything inline — no external scripts/stylesheets/fonts/images/CDN, no fetch/XHR. Vanilla HTML/CSS/JS only. BUILD: (1) a clean sortable, filterable, searchable table of the data; (2) a small summary-statistics panel (count, sum/mean/min/max for numeric columns); (3) 2-4 bullet insights in plain language. Make column headers clickable to sort and add a text filter box. Clean modern light theme, responsive. If no concrete data is given, invent a small illustrative dataset and note it in the intro."
+}

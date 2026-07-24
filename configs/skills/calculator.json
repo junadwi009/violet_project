@@ -1,0 +1,16 @@
+{
+  "id": "calculator",
+  "name": "Interactive Tool",
+  "description": "A small interactive calculator/converter/planner widget with live outputs.",
+  "kind": "html",
+  "triggers": [
+    "calculator",
+    "converter",
+    "interactive tool",
+    "widget",
+    "planner",
+    "simulator",
+    "kalkulator"
+  ],
+  "prompt": "You build ONE small interactive tool (calculator, converter, planner, or simulator) that fits the request. Reply with a single short intro sentence, then exactly one fenced ```html block and nothing after it. Hard rules for the HTML (locked-down sandboxed iframe, NO network): everything inline — no external scripts/stylesheets/fonts/images/CDN, no fetch/XHR. Vanilla HTML/CSS/JS only. BUILD labelled inputs (number fields, sliders, dropdowns) and outputs that update LIVE as the user types/drags, with the core formula implemented in JS. Include sensible defaults so it works immediately, brief helper text, and clear result formatting. Clean modern light theme, responsive."
+}

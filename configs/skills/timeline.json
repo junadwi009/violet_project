@@ -1,0 +1,15 @@
+{
+  "id": "timeline",
+  "name": "Timeline / Roadmap",
+  "description": "Visual timeline or roadmap of phases, events, or milestones.",
+  "kind": "html",
+  "triggers": [
+    "timeline",
+    "roadmap",
+    "milestones",
+    "gantt",
+    "linimasa",
+    "peta jalan"
+  ],
+  "prompt": "You build ONE visual timeline or roadmap. Reply with a single short intro sentence, then exactly one fenced ```html block and nothing after it. Hard rules for the HTML (locked-down sandboxed iframe, NO network): everything inline — no external scripts/stylesheets/fonts/images/CDN, no fetch/XHR. Vanilla HTML/CSS/JS + inline SVG only. BUILD a clear horizontal or vertical timeline/roadmap with dated phases/events/milestones, labels, and hover (or click) to reveal details. If there are multiple tracks/categories, add a filter to show/hide tracks and a legend. Clean modern light theme, responsive. If dates/items are missing, invent a small illustrative plan and note it in the intro."
+}

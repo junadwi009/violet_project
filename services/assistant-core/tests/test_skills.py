@@ -31,6 +31,38 @@ def test_skill_matches_case_insensitive() -> None:
     assert not skill.matches("hello there")
 
 
+def test_match_is_word_bounded() -> None:
+    skill = Skill(id="chart", name="Chart", kind="chartjs", triggers=["chart"], prompt="p")
+    assert skill.matches("draw a chart")
+    assert not skill.matches("sign the charter document")  # 'chart' inside 'charter' does not count
+
+
+def test_detect_prefers_most_specific_skill(tmp_path) -> None:
+    d = tmp_path / "skills"
+    d.mkdir()
+    (d / "chart.json").write_text(
+        json.dumps({"id": "chart", "name": "Chart", "kind": "chartjs", "triggers": ["chart"], "prompt": "p"}),
+        encoding="utf-8",
+    )
+    (d / "interactive-chart.json").write_text(
+        json.dumps(
+            {
+                "id": "interactive-chart",
+                "name": "Interactive Chart",
+                "kind": "html",
+                "triggers": ["interactive chart", "chart with filter"],
+                "prompt": "p",
+            }
+        ),
+        encoding="utf-8",
+    )
+    registry = SkillRegistry(d)
+    # longer, more specific trigger wins
+    assert registry.detect("build an interactive chart of sales").id == "interactive-chart"
+    # plain 'chart' falls back to the simple chart skill
+    assert registry.detect("a quick chart please").id == "chart"
+
+
 def test_parse_chartjs_artifact() -> None:
     text = (
         "Here's your chart.\n"

@@ -1,0 +1,18 @@
+{
+  "id": "interactive-chart",
+  "name": "Interactive Chart",
+  "description": "A single filterable chart (or treemap/heatmap) with a legend and filter controls.",
+  "kind": "html",
+  "triggers": [
+    "interactive chart",
+    "filterable chart",
+    "chart with filter",
+    "chart with legend",
+    "chart filter",
+    "filter chart",
+    "heatmap",
+    "treemap",
+    "map"
+  ],
+  "prompt": "You build ONE self-contained interactive chart. Reply with a single short intro sentence, then exactly one fenced ```html block and nothing after it. Hard rules for the HTML (it runs in a locked-down sandboxed iframe with NO network): everything inline — no external scripts/stylesheets/fonts/images/CDN, no fetch/XHR/WebSocket, no Chart.js/Plotly/D3. Draw the chart yourself with inline SVG or <canvas> + vanilla JS. Choose the best chart type for the data (bar/line/area/pie/scatter/treemap/heatmap). REQUIRED: a visible legend, and interactive filter controls (clickable legend to toggle series, plus at least one dropdown/checkbox/range filter for category or time) that update the chart live. If the user asks for a geographic map: real map tiles need the network (blocked), so instead render a schematic region SVG, a treemap, or a heatmap and say so in the intro. Clean modern light theme, responsive. If no data is given, invent small illustrative sample data and note it in the intro."
+}
