@@ -6,6 +6,7 @@ from violet_assistant.agents.schema import Agent
 from violet_assistant.agents.vetting import (
     LibraryEntry,
     _terms,
+    batch_report,
     load_candidate,
     nearest_matches,
     rule_verdict,
@@ -50,6 +51,26 @@ def test_novel_skill_is_flagged_novel() -> None:
     )
     verdict = rule_verdict(candidate, nearest_matches(candidate, LIBRARY))
     assert verdict["verdict"] == "novel"
+
+
+def test_batch_report_flags_installed_and_duplicates() -> None:
+    dup = Agent(
+        id="charts", name="Chart Maker", model="m",
+        system_prompt="Turn data into a chart, bar line pie graph. " * 4,
+        description="Turn data into a chart (bar line pie graph).",
+        triggers=["chart", "graph"],
+    )
+    novel = Agent(
+        id="translator", name="Translator", model="m",
+        system_prompt="Translate text between languages faithfully. " * 4,
+        description="Translate text between languages.", triggers=["translate"],
+    )
+    rows = batch_report([dup, novel], LIBRARY, installed_ids={"researcher"})
+    by_id = {r["id"]: r for r in rows}
+    assert by_id["charts"]["rule"] == "redundant"
+    assert by_id["charts"]["nearest"] == "chart"
+    assert by_id["translator"]["rule"] == "novel"
+    assert by_id["charts"]["installed"] is False
 
 
 def test_load_candidate_rejects_empty(tmp_path) -> None:

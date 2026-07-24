@@ -111,6 +111,26 @@ def rule_verdict(candidate: Agent, matches: list[Match]) -> dict:
     return {"verdict": "novel", "reason": f"Low overlap (nearest {best.entry.id} @ {best.similarity})."}
 
 
+def batch_report(
+    candidates: list[Agent], library: list[LibraryEntry], installed_ids: set[str]
+) -> list[dict]:
+    """Rule-based verdict row per candidate (offline). CLI adds an optional LLM verdict."""
+    rows: list[dict] = []
+    for candidate in candidates:
+        matches = nearest_matches(candidate, library)
+        verdict = rule_verdict(candidate, matches)
+        rows.append(
+            {
+                "id": candidate.id,
+                "installed": candidate.id in installed_ids,
+                "rule": verdict["verdict"],
+                "nearest": matches[0].entry.id if matches else None,
+                "similarity": matches[0].similarity if matches else 0.0,
+            }
+        )
+    return rows
+
+
 async def judge_candidate(
     candidate: Agent, library: list[LibraryEntry], provider: LLMProvider, model: str
 ) -> dict:

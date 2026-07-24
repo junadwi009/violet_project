@@ -16,6 +16,7 @@ from pathlib import Path
 from violet_assistant.agents.registry import AgentRegistry
 from violet_assistant.agents.schema import Agent
 from violet_assistant.agents.vetting import (
+    batch_report,
     build_library,
     judge_candidate,
     load_candidate,
@@ -83,6 +84,56 @@ def cmd_check(args, settings) -> int:
     return 0
 
 
+def cmd_batch(args, settings) -> int:
+    skills, agents = _registries(settings)
+    library = build_library(skills, agents)
+    installed_ids = {e.id for e in library if e.kind == "agent"}
+    provider = _provider(settings) if args.judge else None
+
+    paths = sorted(Path(args.dir).rglob("SKILL.md"))
+    candidates: list[Agent] = []
+    invalid: list[tuple[str, str]] = []
+    for p in paths:
+        try:
+            candidates.append(load_candidate(p, settings.agent_default_model))
+        except (ValueError, OSError) as exc:
+            invalid.append((p.parent.name, str(exc)[:50]))
+
+    rows = batch_report(candidates, library, installed_ids)
+    by_id = {c.id: c for c in candidates}
+
+    print(f"Checked {len(paths)} skill(s) in {args.dir} against {len(library)} installed.\n")
+    header = f"{'skill':28} {'status':11} {'nearest':22} {'llm':11}"
+    print(header)
+    print("-" * len(header))
+    recommend, skip = [], []
+    for row in rows:
+        llm = ""
+        if provider is not None and not row["installed"]:
+            result = asyncio.run(
+                judge_candidate(by_id[row["id"]], library, provider, settings.agent_default_model)
+            )
+            llm = str(result.get("verdict", "?"))
+        status = "installed" if row["installed"] else row["rule"]
+        nearest = f"{row['nearest']} ({row['similarity']})" if row["nearest"] else "-"
+        print(f"{row['id'][:28]:28} {status:11} {nearest[:22]:22} {llm:11}")
+        if not row["installed"]:
+            decision = llm or row["rule"]
+            if decision in ("redundant", "low_quality"):
+                skip.append(row["id"])
+            elif decision in ("keep", "novel", "overlaps"):
+                recommend.append(row["id"])
+    for name, reason in invalid:
+        print(f"{name[:28]:28} {'invalid':11} {reason[:22]:22}")
+
+    print("\nRecommendation:")
+    print(f"  import  : {', '.join(recommend) or '(none new)'}")
+    print(f"  skip    : {', '.join(skip) or '(none)'}")
+    if invalid:
+        print(f"  invalid : {', '.join(n for n, _ in invalid)}")
+    return 0
+
+
 def cmd_merge(args, settings) -> int:
     _, agents = _registries(settings)
     provider = _provider(settings)
@@ -110,6 +161,10 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument("path", help="Path to a candidate SKILL.md")
     check.add_argument("--judge", action="store_true", help="Also run an LLM quality/novelty verdict")
 
+    batch = sub.add_parser("batch", help="Vet every SKILL.md under a directory.")
+    batch.add_argument("dir", help="Directory to scan for SKILL.md files (recursive)")
+    batch.add_argument("--judge", action="store_true", help="Add an LLM verdict per candidate")
+
     merge = sub.add_parser("merge", help="Combine skills into one improved SKILL.md.")
     merge.add_argument("refs", nargs="+", help="Skill/agent ids or SKILL.md paths to combine")
     merge.add_argument("--name", required=True, help="Name for the merged skill")
@@ -119,6 +174,8 @@ def main(argv: list[str] | None = None) -> int:
     settings = load_settings()
     if args.command == "check":
         return cmd_check(args, settings)
+    if args.command == "batch":
+        return cmd_batch(args, settings)
     return cmd_merge(args, settings)
 
 
