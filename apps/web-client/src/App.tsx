@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
+  AgentInfo,
   ChatMessage,
   Memory,
   MemoryCandidate,
@@ -11,6 +12,7 @@ import {
   SessionSummary,
   approveMemoryCandidate,
   deleteMemory,
+  fetchAgents,
   fetchMemories,
   fetchMemoryCandidates,
   fetchMemoryInfo,
@@ -78,6 +80,8 @@ export function App() {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [selectedProvider, setSelectedProvider] = useState("mock");
   const [routerInfo, setRouterInfo] = useState<RouterInfo | null>(null);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState("");
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
@@ -172,6 +176,9 @@ export function App() {
     fetchMemoryInfo()
       .then(setMemoryInfo)
       .catch(() => setMemoryInfo(null));
+    fetchAgents()
+      .then((response) => setAgents(response.enabled ? response.items : []))
+      .catch(() => setAgents([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -209,6 +216,7 @@ export function App() {
         sessionId,
         personalityId,
         selectedProvider,
+        selectedAgent || null,
       );
       setSessionId(response.session_id);
       setAvatarEmotion(normalizeEmotion(response.emotion));
@@ -444,7 +452,11 @@ export function App() {
       />
 
       <main className="flex-1 bg-navy-950 flex flex-col overflow-hidden relative">
-        <WorkspaceHeader sessionLabel={sessionLabel} status={status} />
+        <WorkspaceHeader
+          sessionLabel={sessionLabel}
+          status={status}
+          agentName={agents.find((a) => a.id === selectedAgent)?.name ?? null}
+        />
 
         <div
           ref={scrollRef}
@@ -522,6 +534,9 @@ export function App() {
         selectedProvider={selectedProvider}
         onSelectProvider={setSelectedProvider}
         router={routerInfo}
+        agents={agents}
+        selectedAgent={selectedAgent}
+        onSelectAgent={setSelectedAgent}
       />
 
       <HelpModal

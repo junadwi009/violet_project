@@ -68,6 +68,10 @@ class Settings:
     vision_model: str = "qwen/qwen3-vl-32b-instruct"
     vision_api_key: str | None = None
     max_upload_mb: int = 15
+    # Specialized sub-agents (Phase 3e)
+    agents_config_dir: Path | None = None
+    agent_base_url: str = "https://openrouter.ai/api/v1"
+    agent_api_key: str | None = None
 
 
 def load_settings(repo_root: Path | None = None) -> Settings:
@@ -129,6 +133,16 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         or os.getenv("OPENROUTER_API_KEY")
         or None,
         max_upload_mb=int(os.getenv("MAX_UPLOAD_MB", "15")),
+        agents_config_dir=Path(
+            os.getenv("AGENTS_CONFIG_DIR", str(root / "configs" / "agents"))
+        ),
+        agent_base_url=os.getenv(
+            "AGENT_BASE_URL",
+            os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        ),
+        agent_api_key=os.getenv("AGENT_API_KEY")
+        or os.getenv("OPENROUTER_API_KEY")
+        or None,
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),

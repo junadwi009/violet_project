@@ -13,6 +13,8 @@ from violet_assistant.rag.no_op_retriever import NoOpRetriever
 from violet_assistant.schemas.chat import Artifact, ChatRequest, ChatResponse
 from violet_assistant.skills.generator import SkillEngine
 from violet_assistant.skills.registry import SkillRegistry
+from violet_assistant.agents.registry import AgentRegistry
+from violet_assistant.agents.runner import AgentRunner
 
 
 class ChatOrchestrator:
@@ -27,6 +29,8 @@ class ChatOrchestrator:
         cascade: CascadeResponder | None = None,
         skill_registry: SkillRegistry | None = None,
         skill_engine: SkillEngine | None = None,
+        agent_registry: AgentRegistry | None = None,
+        agent_runner: AgentRunner | None = None,
     ) -> None:
         self.settings = settings
         self.provider = provider
@@ -37,6 +41,8 @@ class ChatOrchestrator:
         self.cascade = cascade
         self.skill_registry = skill_registry
         self.skill_engine = skill_engine
+        self.agent_registry = agent_registry
+        self.agent_runner = agent_runner
 
     def _select_provider(self, requested: str | None) -> LLMProvider:
         if requested and requested in self.provider_registry:
@@ -81,21 +87,46 @@ class ChatOrchestrator:
             },
         )
         artifacts: list[Artifact] = []
+        agent_used: str | None = None
+        is_mock = request.provider == "mock"
+
+        explicit_agent = (
+            self.agent_registry.get(request.agent)
+            if self.agent_registry is not None
+            else None
+        )
         skill = (
             self.skill_registry.detect(request.content)
             if self.skill_registry is not None
             else None
         )
-        if skill is not None and self.skill_engine is not None and request.provider != "mock":
+
+        # Precedence: mock → explicit agent → skill → auto-detected agent → cascade → provider.
+        if is_mock:
+            llm_response = await self._select_provider(request.provider).chat(
+                messages, base_options
+            )
+        elif explicit_agent is not None and self.agent_runner is not None:
+            llm_response = await self.agent_runner.run(explicit_agent, messages)
+            agent_used = explicit_agent.id
+        elif skill is not None and self.skill_engine is not None:
             intro, artifact_dicts = await self.skill_engine.generate(skill, request.content)
             llm_response = LLMResponse(text=intro, emotion="focused")
             artifacts = [Artifact.model_validate(item) for item in artifact_dicts]
-        elif self.cascade is not None and request.provider != "mock":
+        elif (
+            self.agent_registry is not None
+            and self.agent_runner is not None
+            and (detected_agent := self.agent_registry.detect(request.content)) is not None
+        ):
+            llm_response = await self.agent_runner.run(detected_agent, messages)
+            agent_used = detected_agent.id
+        elif self.cascade is not None:
             result = await self.cascade.respond(messages, base_options)
             llm_response = LLMResponse(text=result.text, emotion=result.emotion)
         else:
-            provider = self._select_provider(request.provider)
-            llm_response = await provider.chat(messages, base_options)
+            llm_response = await self._select_provider(request.provider).chat(
+                messages, base_options
+            )
         assistant_message_id = self.store.add_message(
             session_id=session_id,
             role="assistant",
@@ -113,5 +144,6 @@ class ChatOrchestrator:
             ],
             tool_requests=[],
             artifacts=artifacts,
+            agent=agent_used,
         )
 

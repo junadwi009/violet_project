@@ -53,6 +53,14 @@ export type ChatResponse = {
   memory_candidates: MemoryCandidate[];
   tool_requests: unknown[];
   artifacts: Artifact[];
+  agent: string | null;
+};
+
+export type AgentInfo = {
+  id: string;
+  name: string;
+  description: string;
+  model: string;
 };
 
 export type PersonalityProfile = {
@@ -130,6 +138,7 @@ export async function sendChat(
   sessionId: string | null,
   personalityId: string,
   provider?: string | null,
+  agent?: string | null,
 ): Promise<ChatResponse> {
   return requestJson<ChatResponse>("/api/chat", {
     method: "POST",
@@ -138,8 +147,13 @@ export async function sendChat(
       session_id: sessionId,
       personality_id: personalityId,
       provider: provider ?? null,
+      agent: agent ?? null,
     }),
   });
+}
+
+export async function fetchAgents(): Promise<{ enabled: boolean; items: AgentInfo[] }> {
+  return requestJson<{ enabled: boolean; items: AgentInfo[] }>("/api/agents");
 }
 
 export async function fetchPersonalities(): Promise<PersonalityProfile[]> {

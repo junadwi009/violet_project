@@ -1,5 +1,5 @@
-import { X, SlidersHorizontal, Layers } from "lucide-react";
-import { PersonalityProfile, ProviderInfo, RouterInfo } from "../lib/api";
+import { X, SlidersHorizontal, Layers, Bot } from "lucide-react";
+import { AgentInfo, PersonalityProfile, ProviderInfo, RouterInfo } from "../lib/api";
 
 type SettingsModalProps = {
   open: boolean;
@@ -11,6 +11,9 @@ type SettingsModalProps = {
   selectedProvider: string;
   onSelectProvider: (id: string) => void;
   router: RouterInfo | null;
+  agents: AgentInfo[];
+  selectedAgent: string;
+  onSelectAgent: (id: string) => void;
 };
 
 function personaLabel(profile: PersonalityProfile): string {
@@ -28,6 +31,9 @@ export function SettingsModal({
   selectedProvider,
   onSelectProvider,
   router,
+  agents,
+  selectedAgent,
+  onSelectAgent,
 }: SettingsModalProps) {
   if (!open) return null;
   return (
@@ -126,6 +132,49 @@ export function SettingsModal({
               ))}
             </div>
           </div>
+
+          {agents.length > 0 && (
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-steel uppercase tracking-wider mb-2">
+                <Bot size={13} className="text-steel-highlight" />
+                Delegate to agent
+              </label>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  onClick={() => onSelectAgent("")}
+                  className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-medium transition ${
+                    selectedAgent === ""
+                      ? "bg-steel-highlight/10 text-steel-highlight border-steel-highlight/30"
+                      : "bg-steel-ice text-steel border-navy-700/20 hover:border-steel-highlight/30"
+                  }`}
+                >
+                  <span>Violet (no delegation)</span>
+                </button>
+                {agents.map((agent) => (
+                  <button
+                    key={agent.id}
+                    onClick={() => onSelectAgent(agent.id)}
+                    className={`flex flex-col items-start px-4 py-2.5 rounded-xl border text-sm transition ${
+                      agent.id === selectedAgent
+                        ? "bg-steel-highlight/10 border-steel-highlight/30"
+                        : "bg-steel-ice border-navy-700/20 hover:border-steel-highlight/30"
+                    }`}
+                  >
+                    <span
+                      className={`font-medium ${
+                        agent.id === selectedAgent ? "text-steel-highlight" : "text-steel-dark"
+                      }`}
+                    >
+                      {agent.name}
+                    </span>
+                    <span className="text-[11px] text-steel/60 text-left">
+                      {agent.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-steel uppercase tracking-wider mb-2">

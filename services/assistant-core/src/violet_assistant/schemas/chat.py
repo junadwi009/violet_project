@@ -16,6 +16,7 @@ class ChatRequest(BaseModel):
     content: str = Field(min_length=1, max_length=12000)
     personality_id: str = "violet.default"
     provider: str | None = None
+    agent: str | None = None
     context: ChatContext = Field(default_factory=ChatContext)
 
 
@@ -49,4 +50,5 @@ class ChatResponse(BaseModel):
     memory_candidates: list[MemoryCandidateResponse] = Field(default_factory=list)
     tool_requests: list[dict[str, Any]] = Field(default_factory=list)
     artifacts: list[Artifact] = Field(default_factory=list)
+    agent: str | None = None
 

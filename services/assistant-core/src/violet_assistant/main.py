@@ -28,6 +28,9 @@ from violet_assistant.ingestion.ocr import VisionOCR
 from violet_assistant.llm.openai_compatible_provider import OpenAICompatibleProvider
 from violet_assistant.skills.generator import SkillEngine
 from violet_assistant.skills.registry import SkillRegistry
+from violet_assistant.routes.agents import create_agents_router
+from violet_assistant.agents.registry import AgentRegistry
+from violet_assistant.agents.runner import AgentRunner
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -86,6 +89,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         skill_engine=skill_engine,
     )
 
+    agents_dir = active_settings.agents_config_dir or (
+        active_settings.repo_root / "configs" / "agents"
+    )
+    agent_registry = AgentRegistry(agents_dir)
+    agent_runner = None
+    if active_settings.agent_api_key:
+        agent_runner = AgentRunner(
+            default_base_url=active_settings.agent_base_url,
+            api_key=active_settings.agent_api_key,
+            timeout_seconds=active_settings.llm_timeout_seconds,
+        )
+    orchestrator.agent_registry = agent_registry
+    orchestrator.agent_runner = agent_runner
+
     vision = None
     if active_settings.vision_api_key:
         vision = VisionOCR(
@@ -118,6 +135,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(create_memory_router(store, memory_store))
     app.include_router(create_sessions_router(store))
     app.include_router(create_skills_router(skill_registry, skill_engine is not None))
+    app.include_router(create_agents_router(agent_registry, agent_runner is not None))
     app.include_router(create_upload_router(vision, active_settings.max_upload_mb))
     return app
 
