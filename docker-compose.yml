@@ -1,0 +1,38 @@
+name: violet
+
+services:
+  assistant-core:
+    build:
+      context: .
+      dockerfile: services/assistant-core/Dockerfile
+    image: violet-assistant-core
+    environment:
+      # Mock is the safe, offline default. To use a local model, set:
+      #   LLM_PROVIDER=ollama and LLM_BASE_URL=http://host.docker.internal:11434/v1
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      LLM_MODEL: ${LLM_MODEL:-local-model}
+      DATABASE_URL: sqlite:////app/data/violet.db
+      MEMORY_REQUIRE_APPROVAL: "true"
+    volumes:
+      - violet-data:/app/data
+    ports:
+      - "8000:8000" # direct API access + /docs (optional; the web app uses the proxy)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web-client/Dockerfile
+    image: violet-web
+    depends_on:
+      assistant-core:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+volumes:
+  violet-data:

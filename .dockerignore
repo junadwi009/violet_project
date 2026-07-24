@@ -1,0 +1,33 @@
+# VCS / tooling
+.git
+.gitignore
+*.md
+docs/
+logs/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+.venv/
+.pytest_cache/
+.tmp/
+
+# Node / build output
+**/node_modules/
+**/dist/
+**/.vite/
+*.tsbuildinfo
+
+# Secrets & local data (never bake into images)
+.env
+**/.env
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# Docker files themselves
+docker-compose.yml
+**/Dockerfile
+.dockerignore
