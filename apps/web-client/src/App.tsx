@@ -22,6 +22,7 @@ import {
   sendChat,
   updateMemory,
   updateMemoryCandidate,
+  uploadFile,
 } from "./lib/api";
 import {
   canRecognizeSpeech,
@@ -68,6 +69,12 @@ export function App() {
   const [candidates, setCandidates] = useState<MemoryCandidate[]>([]);
   const [memories, setMemories] = useState<Memory[]>([]);
   const [memoryInfo, setMemoryInfo] = useState<MemoryInfo | null>(null);
+  const [attachment, setAttachment] = useState<{
+    filename: string;
+    text: string;
+    ocr: boolean;
+  } | null>(null);
+  const [attaching, setAttaching] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [selectedProvider, setSelectedProvider] = useState("mock");
   const [routerInfo, setRouterInfo] = useState<RouterInfo | null>(null);
@@ -84,7 +91,34 @@ export function App() {
   const speechInputAvailable = canRecognizeSpeech();
   const speechOutputAvailable = canSpeak();
   const isNewChat = messages.length === 0;
-  const canSend = draft.trim().length > 0 && status.tone !== "busy";
+  const canSend =
+    (draft.trim().length > 0 || attachment !== null) && status.tone !== "busy";
+
+  async function handleAttach(file: File) {
+    setAttaching(true);
+    setStatus({ tone: "busy", text: `Reading ${file.name}` });
+    try {
+      const result = await uploadFile(file);
+      setAttachment({
+        filename: result.filename,
+        text: result.text,
+        ocr: result.ocr,
+      });
+      setStatus({
+        tone: "ok",
+        text: result.ocr
+          ? `OCR extracted ${result.chars} chars`
+          : `Attached ${result.filename} (${result.chars} chars)`,
+      });
+    } catch (error) {
+      setStatus({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Upload failed",
+      });
+    } finally {
+      setAttaching(false);
+    }
+  }
 
   const assistantName = useMemo(() => {
     const profile = personalities.find((item) => item.id === personalityId);
@@ -146,23 +180,32 @@ export function App() {
   }, [messages, status.tone]);
 
   async function send(content: string) {
-    const trimmed = content.trim();
-    if (!trimmed) return;
+    const typed = content.trim();
+    const current = attachment;
+    if (!typed && !current) return;
+
+    const displayContent = current
+      ? `${typed}${typed ? "\n" : ""}📎 ${current.filename}`
+      : typed;
+    const sentContent = current
+      ? `[Attached file: ${current.filename}${current.ocr ? " (OCR text)" : ""}]\n${current.text}\n\n${typed || "Use this file."}`
+      : typed;
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: trimmed,
+      content: displayContent,
     };
-    setMessages((current) => [...current, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setDraft("");
+    setAttachment(null);
     setStatus({ tone: "busy", text: "Thinking" });
     setAvatarState("thinking");
     setAvatarEmotion("focused");
 
     try {
       const response = await sendChat(
-        trimmed,
+        sentContent,
         sessionId,
         personalityId,
         selectedProvider,
@@ -376,6 +419,12 @@ export function App() {
     providerLabel: shortProviderLabel(selectedProvider),
     onOpenSettings: () => setSettingsOpen(true),
     assistantName,
+    onAttach: handleAttach,
+    attaching,
+    attachment: attachment
+      ? { filename: attachment.filename, ocr: attachment.ocr }
+      : null,
+    onRemoveAttachment: () => setAttachment(null),
   };
 
   return (

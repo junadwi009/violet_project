@@ -23,6 +23,8 @@ from violet_assistant.routes.personality import create_personality_router
 from violet_assistant.routes.providers import create_providers_router
 from violet_assistant.routes.sessions import create_sessions_router
 from violet_assistant.routes.skills import create_skills_router
+from violet_assistant.routes.upload import create_upload_router
+from violet_assistant.ingestion.ocr import VisionOCR
 from violet_assistant.llm.openai_compatible_provider import OpenAICompatibleProvider
 from violet_assistant.skills.generator import SkillEngine
 from violet_assistant.skills.registry import SkillRegistry
@@ -84,6 +86,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         skill_engine=skill_engine,
     )
 
+    vision = None
+    if active_settings.vision_api_key:
+        vision = VisionOCR(
+            base_url=active_settings.vision_base_url,
+            api_key=active_settings.vision_api_key,
+            model=active_settings.vision_model,
+            timeout_seconds=active_settings.llm_timeout_seconds,
+        )
+
     app = FastAPI(title="Violet Assistant Core", version="0.1.0")
     client_origins = {
         active_settings.public_client_url,
@@ -107,6 +118,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(create_memory_router(store, memory_store))
     app.include_router(create_sessions_router(store))
     app.include_router(create_skills_router(skill_registry, skill_engine is not None))
+    app.include_router(create_upload_router(vision, active_settings.max_upload_mb))
     return app
 
 

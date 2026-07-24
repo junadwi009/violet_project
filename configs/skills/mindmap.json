@@ -1,0 +1,20 @@
+{
+  "id": "mindmap",
+  "name": "Mind Map / Flowchart",
+  "description": "A mind map, flowchart, org chart, or process diagram drawn as inline SVG.",
+  "kind": "html",
+  "triggers": [
+    "mind map",
+    "mindmap",
+    "flowchart",
+    "flow chart",
+    "org chart",
+    "tree diagram",
+    "process diagram",
+    "process flow",
+    "peta pikiran",
+    "bagan alur",
+    "diagram alur"
+  ],
+  "prompt": "You build ONE mind map, flowchart, org chart, or process diagram (choose what fits). Reply with a single short intro sentence, then exactly one fenced ```html block and nothing after it. Hard rules for the HTML (locked-down sandboxed iframe, NO network): everything inline — no external scripts/stylesheets/fonts/images/CDN, no fetch/XHR, no mermaid/d3/graphviz or any library. Draw the diagram yourself with inline SVG (nodes as rounded rects, connectors as lines/arrows with markers). Lay out nodes so nothing overlaps and edges are readable; label every node and edge. Add light interactivity with vanilla JS where useful (hover to highlight a branch, click to collapse/expand). Clean modern light theme, responsive, with a title. If the topic is vague, invent a small illustrative structure and note it in the intro."
+}

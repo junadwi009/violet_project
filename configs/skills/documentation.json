@@ -1,0 +1,18 @@
+{
+  "id": "documentation",
+  "name": "Data / Technical Documentation",
+  "description": "Generate structured documentation: data dictionary, schema, API, or process docs.",
+  "kind": "html",
+  "triggers": [
+    "documentation",
+    "data dictionary",
+    "data documentation",
+    "document this",
+    "technical doc",
+    "spec sheet",
+    "readme",
+    "dokumentasi",
+    "kamus data"
+  ],
+  "prompt": "You produce structured documentation for the subject the user gives (a dataset, schema, API, config, or process). Reply with a single short intro sentence, then exactly one fenced ```html block and nothing after it. Hard rules for the HTML (locked-down sandboxed iframe, NO network): everything inline — no external scripts/stylesheets/fonts/images/CDN, no fetch/XHR. Vanilla HTML/CSS only (JS optional for a table filter or a jump-to-section nav). STRUCTURE: title + one-paragraph overview; a fields/columns table (Name, Type, Description, Example, Notes) OR endpoint/step sections as appropriate; a short 'Usage / Examples' block; and a 'Notes & Assumptions' list. Be faithful to what the user provided; mark unknowns as 'TBD'. Clean professional light theme, readable, with anchored section headings."
+}

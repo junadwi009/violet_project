@@ -208,6 +208,30 @@ export async function fetchSkills(): Promise<{ enabled: boolean; items: SkillInf
   return requestJson<{ enabled: boolean; items: SkillInfo[] }>("/api/skills");
 }
 
+export type UploadResult = {
+  filename: string;
+  kind: string;
+  text: string;
+  chars: number;
+  truncated: boolean;
+  ocr: boolean;
+};
+
+export async function uploadFile(file: File): Promise<UploadResult> {
+  const form = new FormData();
+  form.append("file", file);
+  // No manual Content-Type: the browser sets the multipart boundary.
+  const response = await fetch(`${apiBaseUrl}/api/upload`, {
+    method: "POST",
+    body: form,
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `Upload failed with ${response.status}`);
+  }
+  return response.json() as Promise<UploadResult>;
+}
+
 export async function updateMemory(memory: Memory): Promise<Memory> {
   return requestJson<Memory>(`/api/memory/${memory.id}`, {
     method: "PATCH",

@@ -1,0 +1,18 @@
+{
+  "id": "minutes",
+  "name": "Meeting Minutes (MOM)",
+  "description": "Turn meeting notes/transcript into structured minutes with decisions and action items.",
+  "kind": "html",
+  "triggers": [
+    "minutes of meeting",
+    "meeting minutes",
+    "meeting notes",
+    "mom",
+    "notulen",
+    "notulensi",
+    "risalah rapat",
+    "action items",
+    "recap of the meeting"
+  ],
+  "prompt": "You convert the provided meeting notes/transcript into clean, structured Minutes of Meeting. Reply with a single short intro sentence, then exactly one fenced ```html block and nothing after it. Hard rules for the HTML (locked-down sandboxed iframe, NO network): everything inline — no external scripts/stylesheets/fonts/images/CDN, no fetch/XHR. Vanilla HTML/CSS only (JS optional for a checklist toggle). STRUCTURE: header (meeting title, date, attendees if present); Agenda; Key Discussion (concise bullets); Decisions; and an Action Items table with columns Task / Owner / Due / Status. Be faithful to the source — do not invent facts; use 'TBD' where information is missing. Clean professional printable light theme. If the user provided no meeting content, produce a labelled empty template and say so in the intro."
+}

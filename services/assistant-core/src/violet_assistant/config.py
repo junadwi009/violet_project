@@ -63,6 +63,11 @@ class Settings:
     artifact_model: str = "qwen/qwen3-coder"
     artifact_api_key: str | None = None
     skills_config_dir: Path | None = None
+    # Vision / OCR (Phase 3c)
+    vision_base_url: str = "https://openrouter.ai/api/v1"
+    vision_model: str = "qwen/qwen3-vl-32b-instruct"
+    vision_api_key: str | None = None
+    max_upload_mb: int = 15
 
 
 def load_settings(repo_root: Path | None = None) -> Settings:
@@ -115,6 +120,15 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         skills_config_dir=Path(
             os.getenv("SKILLS_CONFIG_DIR", str(root / "configs" / "skills"))
         ),
+        vision_base_url=os.getenv(
+            "VISION_BASE_URL",
+            os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        ),
+        vision_model=os.getenv("VISION_MODEL", "qwen/qwen3-vl-32b-instruct"),
+        vision_api_key=os.getenv("VISION_API_KEY")
+        or os.getenv("OPENROUTER_API_KEY")
+        or None,
+        max_upload_mb=int(os.getenv("MAX_UPLOAD_MB", "15")),
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),

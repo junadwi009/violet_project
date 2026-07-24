@@ -19,6 +19,8 @@ services:
       PERSONA_MODEL: ${PERSONA_MODEL:-nousresearch/hermes-4-70b}
       TECHNICAL_MODEL: ${TECHNICAL_MODEL:-deepseek/deepseek-chat-v3.1}
       ARTIFACT_MODEL: ${ARTIFACT_MODEL:-qwen/qwen3-coder}
+      VISION_MODEL: ${VISION_MODEL:-qwen/qwen3-vl-32b-instruct}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-15}
       DATABASE_URL: sqlite:////app/data/violet.db
       # Approved memories are markdown files under MEMORY_DIR, bind-mounted below to a host
       # folder (./memory) so you can manage them directly / sync them to a VPS or Google Drive.
