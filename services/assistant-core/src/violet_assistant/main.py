@@ -29,6 +29,7 @@ from violet_assistant.llm.openai_compatible_provider import OpenAICompatibleProv
 from violet_assistant.skills.generator import SkillEngine
 from violet_assistant.skills.registry import SkillRegistry
 from violet_assistant.routes.agents import create_agents_router
+from violet_assistant.routes.skill_admin import create_skill_admin_router
 from violet_assistant.agents.registry import AgentRegistry
 from violet_assistant.agents.runner import AgentRunner
 
@@ -139,6 +140,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(create_skills_router(skill_registry, skill_engine is not None))
     app.include_router(create_agents_router(agent_registry, agent_runner is not None))
     app.include_router(create_upload_router(vision, active_settings.max_upload_mb))
+
+    admin_provider = None
+    if active_settings.agent_api_key:
+        admin_provider = OpenAICompatibleProvider(
+            base_url=active_settings.agent_base_url,
+            api_key=active_settings.agent_api_key,
+            timeout_seconds=active_settings.llm_timeout_seconds,
+            default_headers={"HTTP-Referer": "https://localhost/violet", "X-Title": "Violet"},
+        )
+    app.include_router(
+        create_skill_admin_router(
+            skill_registry, agent_registry, admin_provider, active_settings.agent_default_model
+        )
+    )
     return app
 
 

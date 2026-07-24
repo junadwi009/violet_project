@@ -156,6 +156,53 @@ export async function fetchAgents(): Promise<{ enabled: boolean; items: AgentInf
   return requestJson<{ enabled: boolean; items: AgentInfo[] }>("/api/agents");
 }
 
+export type LibraryItem = {
+  id: string;
+  kind: "skill" | "agent";
+  name: string;
+  description: string;
+};
+
+export type CheckResponse = {
+  candidate: { name: string; triggers: string[]; chars: number };
+  rule: { verdict: string; reason: string };
+  nearest: {
+    id: string;
+    kind: string;
+    name: string;
+    similarity: number;
+    shared_triggers: string[];
+  }[];
+  llm: { verdict?: string; closest?: string; reason?: string } | null;
+};
+
+export async function fetchSkillLibrary(): Promise<{
+  judge_enabled: boolean;
+  items: LibraryItem[];
+}> {
+  return requestJson("/api/skills/library");
+}
+
+export async function checkSkill(
+  content: string,
+  judge: boolean,
+): Promise<CheckResponse> {
+  return requestJson<CheckResponse>("/api/skills/check", {
+    method: "POST",
+    body: JSON.stringify({ content, judge }),
+  });
+}
+
+export async function mergeSkills(
+  refs: string[],
+  name: string,
+): Promise<{ skill_md: string }> {
+  return requestJson<{ skill_md: string }>("/api/skills/merge", {
+    method: "POST",
+    body: JSON.stringify({ refs, name }),
+  });
+}
+
 export async function fetchPersonalities(): Promise<PersonalityProfile[]> {
   const result = await requestJson<{ items: PersonalityProfile[] }>(
     "/api/personalities",

@@ -1,4 +1,4 @@
-import { Database, SlidersHorizontal, HelpCircle } from "lucide-react";
+import { Database, SlidersHorizontal, HelpCircle, FlaskConical } from "lucide-react";
 
 type FloatingToolsProps = {
   visible: boolean;
@@ -6,6 +6,7 @@ type FloatingToolsProps = {
   onToggleMemory: () => void;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
+  onOpenSkillLab: () => void;
 };
 
 export function FloatingTools({
@@ -14,6 +15,7 @@ export function FloatingTools({
   onToggleMemory,
   onOpenSettings,
   onOpenHelp,
+  onOpenSkillLab,
 }: FloatingToolsProps) {
   if (!visible) return null;
   return (
@@ -32,6 +34,19 @@ export function FloatingTools({
           )}
           <span className="absolute right-12 scale-0 group-hover:scale-100 bg-steel-dark text-xs px-2.5 py-1 rounded-md text-white transition-all whitespace-nowrap shadow-md">
             Memory
+          </span>
+        </button>
+
+        <div className="w-6 h-px bg-navy-700/20" />
+
+        <button
+          onClick={onOpenSkillLab}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-steel hover:text-steel-dark hover:bg-steel-ice transition relative group"
+          title="Skill Lab"
+        >
+          <FlaskConical size={16} />
+          <span className="absolute right-12 scale-0 group-hover:scale-100 bg-steel-dark text-xs px-2.5 py-1 rounded-md text-white transition-all whitespace-nowrap shadow-md">
+            Skill Lab
           </span>
         </button>
 

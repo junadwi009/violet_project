@@ -80,6 +80,35 @@ def test_load_candidate_rejects_empty(tmp_path) -> None:
         load_candidate(p, default_model="m")
 
 
+def test_candidate_from_text_valid_and_invalid() -> None:
+    from violet_assistant.agents.vetting import candidate_from_text
+
+    good = candidate_from_text(
+        "---\nname: Foo\ndescription: d\n---\n" + "You do a specific useful thing well. " * 4,
+        "fb", "m",
+    )
+    assert good.name == "Foo"
+    with pytest.raises(ValueError):
+        candidate_from_text("---\nname: Bar\ndescription: d\n---\n", "fb", "m")
+
+
+def test_resolve_ref_from_both_registries() -> None:
+    from pathlib import Path
+
+    from violet_assistant.agents.registry import AgentRegistry
+    from violet_assistant.agents.vetting import resolve_ref
+    from violet_assistant.skills.registry import SkillRegistry
+
+    root = Path(__file__).resolve().parents[3]
+    skills = SkillRegistry(root / "configs" / "skills")
+    agents = AgentRegistry(root / "configs" / "agents", default_model="m")
+
+    assert resolve_ref("writer", skills, agents, "m").id == "writer"  # native agent
+    chart = resolve_ref("chart", skills, agents, "m")  # skill wrapped as agent
+    assert chart is not None and chart.id == "chart" and chart.system_prompt
+    assert resolve_ref("does-not-exist", skills, agents, "m") is None
+
+
 def test_load_candidate_parses_valid(tmp_path) -> None:
     p = tmp_path / "SKILL.md"
     p.write_text(

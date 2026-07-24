@@ -81,14 +81,36 @@ def nearest_matches(
     return matches[:top]
 
 
-def load_candidate(path: str | Path, default_model: str) -> Agent:
-    """Parse a candidate SKILL.md into an Agent. Raises ValueError if clearly invalid."""
-    p = Path(path)
-    text = p.read_text(encoding="utf-8")
-    candidate = parse_skill_md(text, fallback_id=p.parent.name, default_model=default_model)
+def candidate_from_text(content: str, fallback_id: str, default_model: str) -> Agent:
+    """Parse SKILL.md text into an Agent. Raises ValueError if clearly invalid."""
+    candidate = parse_skill_md(content, fallback_id=fallback_id, default_model=default_model)
     if not candidate.name.strip() or len(candidate.system_prompt.strip()) < 40:
         raise ValueError("Skill has no meaningful instructions (empty or too short).")
     return candidate
+
+
+def load_candidate(path: str | Path, default_model: str) -> Agent:
+    """Parse a candidate SKILL.md file into an Agent. Raises ValueError if clearly invalid."""
+    p = Path(path)
+    return candidate_from_text(p.read_text(encoding="utf-8"), p.parent.name, default_model)
+
+
+def resolve_ref(ref: str, skill_registry, agent_registry, default_model: str) -> Agent | None:
+    """Resolve an id to an Agent from either registry (skills wrapped as Agents for merging)."""
+    agent = agent_registry.get(ref) if agent_registry else None
+    if agent is not None:
+        return agent
+    for skill in skill_registry.list_skills() if skill_registry else []:
+        if skill.id == ref:
+            return Agent(
+                id=skill.id,
+                name=skill.name,
+                model=default_model,
+                system_prompt=skill.prompt,
+                description=skill.description,
+                triggers=list(skill.triggers),
+            )
+    return None
 
 
 def rule_verdict(candidate: Agent, matches: list[Match]) -> dict:

@@ -1,4 +1,5 @@
 import { X, SlidersHorizontal, Layers, Bot } from "lucide-react";
+// (SkillLab is rendered from App, not here)
 import { AgentInfo, PersonalityProfile, ProviderInfo, RouterInfo } from "../lib/api";
 
 type SettingsModalProps = {

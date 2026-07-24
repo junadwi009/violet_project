@@ -45,6 +45,7 @@ import { FloatingTools } from "./components/FloatingTools";
 import { MemoryDrawer } from "./components/MemoryDrawer";
 import { SettingsModal } from "./components/SettingsModal";
 import { HelpModal } from "./components/HelpModal";
+import { SkillLab } from "./components/SkillLab";
 
 type Status = {
   tone: "idle" | "busy" | "ok" | "error";
@@ -88,6 +89,7 @@ export function App() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [skillLabOpen, setSkillLabOpen] = useState(false);
 
   const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer>>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -499,6 +501,7 @@ export function App() {
         onToggleMemory={() => setMemoryOpen((value) => !value)}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenHelp={() => setHelpOpen(true)}
+        onOpenSkillLab={() => setSkillLabOpen(true)}
       />
 
       <MemoryDrawer
@@ -544,6 +547,8 @@ export function App() {
         onClose={() => setHelpOpen(false)}
         assistantName={assistantName}
       />
+
+      <SkillLab open={skillLabOpen} onClose={() => setSkillLabOpen(false)} />
     </div>
   );
 }
