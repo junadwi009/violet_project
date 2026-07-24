@@ -1,7 +1,23 @@
+export type Artifact = {
+  id: string;
+  kind: "chartjs" | "html";
+  title: string;
+  spec?: Record<string, unknown> | null;
+  html?: string | null;
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  artifacts?: Artifact[];
+};
+
+export type SkillInfo = {
+  id: string;
+  name: string;
+  description: string;
+  kind: string;
 };
 
 export type MemoryCandidate = {
@@ -33,6 +49,7 @@ export type ChatResponse = {
   emotion: string;
   memory_candidates: MemoryCandidate[];
   tool_requests: unknown[];
+  artifacts: Artifact[];
 };
 
 export type PersonalityProfile = {
@@ -185,6 +202,10 @@ export async function fetchMemories(): Promise<Memory[]> {
 
 export async function fetchMemoryInfo(): Promise<MemoryInfo> {
   return requestJson<MemoryInfo>("/api/memory/info");
+}
+
+export async function fetchSkills(): Promise<{ enabled: boolean; items: SkillInfo[] }> {
+  return requestJson<{ enabled: boolean; items: SkillInfo[] }>("/api/skills");
 }
 
 export async function updateMemory(memory: Memory): Promise<Memory> {

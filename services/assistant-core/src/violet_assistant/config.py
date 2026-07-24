@@ -58,6 +58,11 @@ class Settings:
     technical_base_url: str = "https://openrouter.ai/api/v1"
     technical_model: str = "deepseek/deepseek-chat-v3.1"
     technical_api_key: str | None = None
+    # Skills / artifacts (Phase 3)
+    artifact_base_url: str = "https://openrouter.ai/api/v1"
+    artifact_model: str = "qwen/qwen3-coder"
+    artifact_api_key: str | None = None
+    skills_config_dir: Path | None = None
 
 
 def load_settings(repo_root: Path | None = None) -> Settings:
@@ -99,6 +104,17 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         technical_api_key=os.getenv("TECHNICAL_API_KEY")
         or os.getenv("OPENROUTER_API_KEY")
         or None,
+        artifact_base_url=os.getenv(
+            "ARTIFACT_BASE_URL",
+            os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        ),
+        artifact_model=os.getenv("ARTIFACT_MODEL", "qwen/qwen3-coder"),
+        artifact_api_key=os.getenv("ARTIFACT_API_KEY")
+        or os.getenv("OPENROUTER_API_KEY")
+        or None,
+        skills_config_dir=Path(
+            os.getenv("SKILLS_CONFIG_DIR", str(root / "configs" / "skills"))
+        ),
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),

@@ -1,6 +1,7 @@
 import { Fragment, ReactNode } from "react";
 import { Sparkles, Hourglass } from "lucide-react";
 import { ChatMessage } from "../lib/api";
+import { ArtifactView } from "./ArtifactView";
 
 /** Minimal, safe markdown: **bold** + line breaks, rendered as React nodes (no innerHTML). */
 function renderRich(text: string): ReactNode {
@@ -48,10 +49,13 @@ export function ChatTimeline({ messages, typing, assistantName }: ChatTimelinePr
             <div className="w-6 h-6 rounded-full bg-steel-dark flex items-center justify-center text-white shrink-0 mt-1 shadow-sm">
               <Sparkles size={11} />
             </div>
-            <div className="flex-1 flex flex-col space-y-2">
+            <div className="flex-1 flex flex-col space-y-2 min-w-0">
               <div className="text-steel-dark text-sm leading-relaxed">
                 {renderRich(message.content)}
               </div>
+              {message.artifacts?.map((artifact) => (
+                <ArtifactView key={artifact.id} artifact={artifact} />
+              ))}
               <span className="text-[10px] text-steel">
                 {assistantName} · Assistant
               </span>

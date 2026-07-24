@@ -10,7 +10,9 @@ from violet_assistant.persistence.sqlite_store import SQLiteStore
 from violet_assistant.personality.loader import PersonalityLoader, build_system_prompt
 from violet_assistant.rag.base import Retriever
 from violet_assistant.rag.no_op_retriever import NoOpRetriever
-from violet_assistant.schemas.chat import ChatRequest, ChatResponse
+from violet_assistant.schemas.chat import Artifact, ChatRequest, ChatResponse
+from violet_assistant.skills.generator import SkillEngine
+from violet_assistant.skills.registry import SkillRegistry
 
 
 class ChatOrchestrator:
@@ -23,6 +25,8 @@ class ChatOrchestrator:
         retriever: Retriever | None = None,
         provider_registry: dict[str, LLMProvider] | None = None,
         cascade: CascadeResponder | None = None,
+        skill_registry: SkillRegistry | None = None,
+        skill_engine: SkillEngine | None = None,
     ) -> None:
         self.settings = settings
         self.provider = provider
@@ -31,6 +35,8 @@ class ChatOrchestrator:
         self.retriever = retriever or NoOpRetriever()
         self.provider_registry = provider_registry or {}
         self.cascade = cascade
+        self.skill_registry = skill_registry
+        self.skill_engine = skill_engine
 
     def _select_provider(self, requested: str | None) -> LLMProvider:
         if requested and requested in self.provider_registry:
@@ -74,7 +80,17 @@ class ChatOrchestrator:
                 "personality_name": profile.name,
             },
         )
-        if self.cascade is not None and request.provider != "mock":
+        artifacts: list[Artifact] = []
+        skill = (
+            self.skill_registry.detect(request.content)
+            if self.skill_registry is not None
+            else None
+        )
+        if skill is not None and self.skill_engine is not None and request.provider != "mock":
+            intro, artifact_dicts = await self.skill_engine.generate(skill, request.content)
+            llm_response = LLMResponse(text=intro, emotion="focused")
+            artifacts = [Artifact.model_validate(item) for item in artifact_dicts]
+        elif self.cascade is not None and request.provider != "mock":
             result = await self.cascade.respond(messages, base_options)
             llm_response = LLMResponse(text=result.text, emotion=result.emotion)
         else:
@@ -96,5 +112,6 @@ class ChatOrchestrator:
                 candidate.to_response() for candidate in candidates
             ],
             tool_requests=[],
+            artifacts=artifacts,
         )
 

@@ -171,7 +171,12 @@ export function App() {
       setAvatarEmotion(normalizeEmotion(response.emotion));
       setMessages((current) => [
         ...current,
-        { id: response.message_id, role: "assistant", content: response.text },
+        {
+          id: response.message_id,
+          role: "assistant",
+          content: response.text,
+          artifacts: response.artifacts,
+        },
       ]);
 
       if (speechOutputEnabled) {

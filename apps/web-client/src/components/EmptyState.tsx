@@ -7,9 +7,9 @@ type EmptyStateProps = {
 };
 
 const QUICK_PROMPTS = [
-  "Summarize my priorities for today",
+  "Bar chart of sales: Jan 120, Feb 150, Mar 90, Apr 200",
+  "Interactive dashboard analyzing 3 products by revenue and growth",
   "Draft a short status update",
-  "Help me plan a focused work block",
 ];
 
 export function EmptyState({ assistantName, composer, onQuickPrompt }: EmptyStateProps) {

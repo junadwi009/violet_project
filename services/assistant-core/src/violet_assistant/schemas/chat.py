@@ -29,6 +29,14 @@ class MemoryCandidateResponse(BaseModel):
     status: str = "pending"
 
 
+class Artifact(BaseModel):
+    id: str
+    kind: str  # "chartjs" | "html"
+    title: str = ""
+    spec: dict[str, Any] | None = None
+    html: str | None = None
+
+
 class ChatResponse(BaseModel):
     message_id: str
     session_id: str
@@ -36,4 +44,5 @@ class ChatResponse(BaseModel):
     emotion: str = "neutral"
     memory_candidates: list[MemoryCandidateResponse] = Field(default_factory=list)
     tool_requests: list[dict[str, Any]] = Field(default_factory=list)
+    artifacts: list[Artifact] = Field(default_factory=list)
 

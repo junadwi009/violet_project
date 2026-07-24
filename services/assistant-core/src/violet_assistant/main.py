@@ -22,6 +22,10 @@ from violet_assistant.routes.memory import create_memory_router
 from violet_assistant.routes.personality import create_personality_router
 from violet_assistant.routes.providers import create_providers_router
 from violet_assistant.routes.sessions import create_sessions_router
+from violet_assistant.routes.skills import create_skills_router
+from violet_assistant.llm.openai_compatible_provider import OpenAICompatibleProvider
+from violet_assistant.skills.generator import SkillEngine
+from violet_assistant.skills.registry import SkillRegistry
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -52,6 +56,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             timeout_seconds=active_settings.llm_timeout_seconds,
         )
 
+    # Skills / artifacts (active when an artifact model key is configured).
+    skills_dir = active_settings.skills_config_dir or (
+        active_settings.repo_root / "configs" / "skills"
+    )
+    skill_registry = SkillRegistry(skills_dir)
+    skill_engine = None
+    if active_settings.artifact_api_key:
+        skill_engine = SkillEngine(
+            provider=OpenAICompatibleProvider(
+                base_url=active_settings.artifact_base_url,
+                api_key=active_settings.artifact_api_key,
+                timeout_seconds=active_settings.llm_timeout_seconds,
+            ),
+            model=active_settings.artifact_model,
+        )
+
     orchestrator = ChatOrchestrator(
         settings=active_settings,
         provider=provider,
@@ -60,6 +80,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         retriever=retriever,
         provider_registry=provider_registry,
         cascade=cascade,
+        skill_registry=skill_registry,
+        skill_engine=skill_engine,
     )
 
     app = FastAPI(title="Violet Assistant Core", version="0.1.0")
@@ -84,6 +106,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(create_chat_router(orchestrator))
     app.include_router(create_memory_router(store, memory_store))
     app.include_router(create_sessions_router(store))
+    app.include_router(create_skills_router(skill_registry, skill_engine is not None))
     return app
 
 
