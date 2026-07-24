@@ -27,10 +27,13 @@ class SkillRegistry:
         Rule-based and zero-cost. Ties break by filename order (stable via list_skills sort).
         """
         best: Skill | None = None
-        best_score = 0
+        best_key = (0, 0)  # (priority, trigger length)
         for skill in self.list_skills():
             score = skill.match_score(text)
-            if score > best_score:
-                best_score = score
+            if score == 0:
+                continue
+            key = (skill.priority, score)
+            if key > best_key:
+                best_key = key
                 best = skill
         return best

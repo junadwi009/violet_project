@@ -63,6 +63,36 @@ def test_detect_prefers_most_specific_skill(tmp_path) -> None:
     assert registry.detect("a quick chart please").id == "chart"
 
 
+def test_priority_beats_longer_generic_trigger(tmp_path) -> None:
+    d = tmp_path / "skills"
+    d.mkdir()
+    (d / "dashboard.json").write_text(
+        json.dumps(
+            {"id": "dashboard", "name": "Dashboard", "kind": "html", "triggers": ["report", "dashboard"], "prompt": "p"}
+        ),
+        encoding="utf-8",
+    )
+    (d / "report.json").write_text(
+        json.dumps(
+            {
+                "id": "report",
+                "name": "Report",
+                "kind": "docx",
+                "priority": 1,
+                "triggers": ["word report", "docx"],
+                "prompt": "p",
+            }
+        ),
+        encoding="utf-8",
+    )
+    registry = SkillRegistry(d)
+    # 'docx' (priority 1) beats the longer generic 'report' (priority 0)
+    assert registry.detect("make a report as docx").id == "report"
+    assert registry.detect("generate a word report").id == "report"
+    # a plain dashboard request still routes to dashboard
+    assert registry.detect("build an interactive dashboard").id == "dashboard"
+
+
 def test_parse_chartjs_artifact() -> None:
     text = (
         "Here's your chart.\n"

@@ -3,6 +3,7 @@
   "name": "Presentation (PPTX)",
   "description": "Generate a downloadable PowerPoint (.pptx) deck.",
   "kind": "pptx",
+  "priority": 1,
   "triggers": [
     "presentation",
     "powerpoint",
