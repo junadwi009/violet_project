@@ -23,6 +23,7 @@ logs/
 .env
 **/.env
 data/
+/memory/
 *.sqlite
 *.sqlite3
 *.db

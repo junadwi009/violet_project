@@ -13,9 +13,14 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
       LLM_MODEL: ${LLM_MODEL:-local-model}
       DATABASE_URL: sqlite:////app/data/violet.db
+      # Approved memories are markdown files under MEMORY_DIR, bind-mounted below to a host
+      # folder (./memory) so you can manage them directly / sync them to a VPS or Google Drive.
+      MEMORY_BACKEND: ${MEMORY_BACKEND:-files}
+      MEMORY_DIR: /app/memory
       MEMORY_REQUIRE_APPROVAL: "true"
     volumes:
       - violet-data:/app/data
+      - ./memory:/app/memory
     ports:
       - "8000:8000" # direct API access + /docs (optional; the web app uses the proxy)
     extra_hosts:

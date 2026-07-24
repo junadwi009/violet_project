@@ -43,6 +43,8 @@ class Settings:
     llm_api_key: str | None
     personality_config_dir: Path
     rag_provider: str
+    memory_backend: str
+    memory_dir: Path
     memory_auto_save: bool
     memory_require_approval: bool
     log_level: str
@@ -68,6 +70,8 @@ def load_settings(repo_root: Path | None = None) -> Settings:
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),
         rag_provider=os.getenv("RAG_PROVIDER", "none").strip().lower(),
+        memory_backend=os.getenv("MEMORY_BACKEND", "files").strip().lower(),
+        memory_dir=Path(os.getenv("MEMORY_DIR", str(root / "memory"))),
         memory_auto_save=_env_bool("MEMORY_AUTO_SAVE", False),
         memory_require_approval=_env_bool("MEMORY_REQUIRE_APPROVAL", True),
         log_level=os.getenv("LOG_LEVEL", "info"),

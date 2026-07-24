@@ -4,6 +4,7 @@ import {
   ChatMessage,
   Memory,
   MemoryCandidate,
+  MemoryInfo,
   PersonalityProfile,
   ProviderInfo,
   SessionSummary,
@@ -11,6 +12,7 @@ import {
   deleteMemory,
   fetchMemories,
   fetchMemoryCandidates,
+  fetchMemoryInfo,
   fetchPersonalities,
   fetchProviders,
   fetchSessionMessages,
@@ -64,6 +66,7 @@ export function App() {
   const [personalityId, setPersonalityId] = useState("violet.default");
   const [candidates, setCandidates] = useState<MemoryCandidate[]>([]);
   const [memories, setMemories] = useState<Memory[]>([]);
+  const [memoryInfo, setMemoryInfo] = useState<MemoryInfo | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [selectedProvider, setSelectedProvider] = useState("mock");
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -129,6 +132,9 @@ export function App() {
         setSessions(nextSessions);
       })
       .catch((error: Error) => setStatus({ tone: "error", text: error.message }));
+    fetchMemoryInfo()
+      .then(setMemoryInfo)
+      .catch(() => setMemoryInfo(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -431,6 +437,7 @@ export function App() {
         onClose={() => setMemoryOpen(false)}
         candidates={candidates}
         memories={memories}
+        info={memoryInfo}
         onRefresh={() => void refreshMemory()}
         onCandidateChange={(next) =>
           setCandidates((current) =>

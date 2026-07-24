@@ -12,3 +12,6 @@ data/
 violet.db
 *.sqlite
 *.sqlite3
+
+# File-based memory store (personal data — manage/sync it yourself, don't commit)
+/memory/

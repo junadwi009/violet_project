@@ -6,6 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from violet_assistant.config import Settings, load_settings
 from violet_assistant.llm.factory import create_llm_provider
 from violet_assistant.llm.registry import build_provider_registry
+from violet_assistant.memory.store.factory import (
+    create_approved_memory_store,
+    migrate_sqlite_memories_to_files,
+)
+from violet_assistant.memory.store.file_store import FileApprovedMemoryStore
 from violet_assistant.orchestrator.chat_orchestrator import ChatOrchestrator
 from violet_assistant.persistence.sqlite_store import SQLiteStore
 from violet_assistant.personality.loader import PersonalityLoader
@@ -27,6 +32,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         migration_path=migration_path,
     )
     store.initialize()
+
+    memory_store = create_approved_memory_store(active_settings, store)
+    if isinstance(memory_store, FileApprovedMemoryStore):
+        migrate_sqlite_memories_to_files(store, memory_store)
 
     personality_loader = PersonalityLoader(active_settings.personality_config_dir)
     provider = create_llm_provider(active_settings)
@@ -61,7 +70,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(create_personality_router(personality_loader))
     app.include_router(create_providers_router(active_settings))
     app.include_router(create_chat_router(orchestrator))
-    app.include_router(create_memory_router(store))
+    app.include_router(create_memory_router(store, memory_store))
     app.include_router(create_sessions_router(store))
     return app
 

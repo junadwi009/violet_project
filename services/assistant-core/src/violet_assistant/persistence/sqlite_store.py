@@ -220,6 +220,55 @@ class SQLiteStore:
             raise KeyError(candidate_id)
         return dict(updated)
 
+    def get_pending_candidate(self, candidate_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = self._candidate_row(connection, candidate_id)
+        if row is None or row["status"] != "pending":
+            return None
+        return dict(row)
+
+    def mark_candidate_approved(self, candidate_id: str) -> None:
+        with self._connect() as connection:
+            candidate = self._candidate_row(connection, candidate_id)
+            if candidate is None or candidate["status"] != "pending":
+                raise KeyError(candidate_id)
+            connection.execute(
+                "UPDATE memory_candidates SET status = 'approved' WHERE id = ?",
+                (candidate_id,),
+            )
+
+    def insert_memory(
+        self,
+        *,
+        memory_type: str,
+        content: str,
+        source: str,
+        confidence: float,
+        candidate_id: str | None = None,
+    ) -> dict[str, Any]:
+        memory_id = str(uuid4())
+        metadata = None if candidate_id is None else json.dumps({"candidate_id": candidate_id})
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO memories (
+                  id, memory_type, content, source, confidence, approved, metadata_json
+                )
+                VALUES (?, ?, ?, ?, ?, 1, ?)
+                """,
+                (memory_id, memory_type, content, source, confidence, metadata),
+            )
+            row = connection.execute(
+                """
+                SELECT id, memory_type, content, source, confidence, approved,
+                       metadata_json, created_at, updated_at
+                FROM memories
+                WHERE id = ?
+                """,
+                (memory_id,),
+            ).fetchone()
+        return dict(row)
+
     def approve_memory_candidate(self, candidate_id: str) -> dict[str, Any]:
         with self._connect() as connection:
             candidate = self._candidate_row(connection, candidate_id)

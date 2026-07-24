@@ -17,7 +17,10 @@ Then open **http://localhost:8080**.
 
 - Web app: http://localhost:8080 (nginx serves the SPA and proxies `/api` → backend)
 - API direct (optional): http://localhost:8000 — e.g. http://localhost:8000/docs
-- Data (SQLite) persists in the `violet-data` named volume across restarts.
+- Sessions/candidates (SQLite) persist in the `violet-data` named volume across restarts.
+- **Approved memories are markdown files** in the host folder **`./memory`** (bind-mounted to
+  `/app/memory`). Open/edit/delete them directly, or point that folder at a VPS mount or a
+  Google-Drive-synced folder to sync your memory to the cloud. See "Memory storage" below.
 
 Stop:
 
@@ -38,6 +41,20 @@ LLM_PROVIDER=ollama LLM_BASE_URL=http://host.docker.internal:11434/v1 LLM_MODEL=
 
 `host.docker.internal` is already wired in `docker-compose.yml` so the container can reach a
 model server running on your host.
+
+## Memory storage
+Approved memories are Claude-style markdown files (one per fact + a `MEMORY.md` index), managed
+as a directory so they're portable and human-editable.
+
+- **Local folder (default):** `./memory` on the host, bind-mounted into the container. Edit the
+  `.md` files directly; changes are read back by the app.
+- **VPS:** run the stack on the VPS — `./memory` lives on the server. Or bind-mount a different
+  path by editing the `web`/`assistant-core` volume in `docker-compose.yml`.
+- **Google Drive:** point the mount at a Drive-synced / rclone folder, e.g. change the compose
+  line to `- /path/to/GoogleDrive/violet-memory:/app/memory`. Files then sync to Drive
+  automatically — no API keys needed. (A native Drive-API backend can be added later behind the
+  same `MEMORY_BACKEND` switch.)
+- Switch back to the DB-backed store with `MEMORY_BACKEND=sqlite docker compose up`.
 
 ## Moving the project to another machine
 1. Copy the repo (or just: `pyproject.toml`, `services/`, `database/`, `configs/`, `apps/web-client/`, `docker-compose.yml`, and the two `Dockerfile`s + `nginx.conf`).

@@ -1,11 +1,12 @@
-import { Check, Save, Trash2, X, Database, RefreshCw } from "lucide-react";
-import { Memory, MemoryCandidate } from "../lib/api";
+import { Check, Save, Trash2, X, Database, RefreshCw, FolderOpen, HardDrive } from "lucide-react";
+import { Memory, MemoryCandidate, MemoryInfo } from "../lib/api";
 
 type MemoryDrawerProps = {
   open: boolean;
   onClose: () => void;
   candidates: MemoryCandidate[];
   memories: Memory[];
+  info: MemoryInfo | null;
   onRefresh: () => void;
   onCandidateChange: (candidate: MemoryCandidate) => void;
   onCandidateSave: (candidate: MemoryCandidate) => void;
@@ -16,7 +17,7 @@ type MemoryDrawerProps = {
 };
 
 export function MemoryDrawer(props: MemoryDrawerProps) {
-  const { open, onClose, candidates, memories, onRefresh } = props;
+  const { open, onClose, candidates, memories, info, onRefresh } = props;
   return (
     <>
       <div
@@ -39,6 +40,21 @@ export function MemoryDrawer(props: MemoryDrawerProps) {
             <p className="text-xs text-steel/70 mt-0.5">
               {candidates.length} pending · {memories.length} approved
             </p>
+            {info && (
+              <p
+                className="text-[10px] text-steel/60 mt-1 flex items-center gap-1 max-w-[240px] truncate"
+                title={info.location}
+              >
+                {info.backend === "files" ? (
+                  <FolderOpen size={11} className="shrink-0 text-steel-highlight" />
+                ) : (
+                  <HardDrive size={11} className="shrink-0" />
+                )}
+                <span className="truncate">
+                  {info.backend} · {info.location}
+                </span>
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <button

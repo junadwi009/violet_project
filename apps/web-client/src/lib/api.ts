@@ -69,6 +69,11 @@ export type SessionMessage = {
   created_at: string;
 };
 
+export type MemoryInfo = {
+  backend: string;
+  location: string;
+};
+
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ??
   "http://127.0.0.1:8000";
@@ -169,6 +174,10 @@ export async function rejectMemoryCandidate(id: string): Promise<void> {
 export async function fetchMemories(): Promise<Memory[]> {
   const result = await requestJson<{ items: Memory[] }>("/api/memory");
   return result.items;
+}
+
+export async function fetchMemoryInfo(): Promise<MemoryInfo> {
+  return requestJson<MemoryInfo>("/api/memory/info");
 }
 
 export async function updateMemory(memory: Memory): Promise<Memory> {
