@@ -31,10 +31,14 @@ class MemoryCandidateResponse(BaseModel):
 
 class Artifact(BaseModel):
     id: str
-    kind: str  # "chartjs" | "html"
+    kind: str  # "chartjs" | "html" | "docx" | "pptx"
     title: str = ""
     spec: dict[str, Any] | None = None
     html: str | None = None
+    # Downloadable file artifacts (docx/pptx): base64 content + filename + mime.
+    file_base64: str | None = None
+    filename: str | None = None
+    mime: str | None = None
 
 
 class ChatResponse(BaseModel):

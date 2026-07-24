@@ -1,9 +1,12 @@
 export type Artifact = {
   id: string;
-  kind: "chartjs" | "html";
+  kind: "chartjs" | "html" | "docx" | "pptx";
   title: string;
   spec?: Record<string, unknown> | null;
   html?: string | null;
+  file_base64?: string | null;
+  filename?: string | null;
+  mime?: string | null;
 };
 
 export type ChatMessage = {

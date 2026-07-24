@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Chart } from "chart.js/auto";
-import { BarChart3, LayoutDashboard, Maximize2, Minimize2 } from "lucide-react";
+import {
+  BarChart3,
+  LayoutDashboard,
+  Maximize2,
+  Minimize2,
+  FileText,
+  Presentation,
+  Download,
+} from "lucide-react";
 import { Artifact } from "../lib/api";
 
 // Locked-down sandbox for HTML artifacts: scripts may run, but no same-origin access and a CSP
@@ -61,24 +69,84 @@ function HtmlArtifact({ artifact }: { artifact: Artifact }) {
   );
 }
 
+function base64ToBlob(base64: string, mime: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+function FileArtifact({ artifact }: { artifact: Artifact }) {
+  const isPptx = artifact.kind === "pptx";
+  function download() {
+    if (!artifact.file_base64) return;
+    const blob = base64ToBlob(
+      artifact.file_base64,
+      artifact.mime || "application/octet-stream",
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = artifact.filename || (isPptx ? "presentation.pptx" : "document.docx");
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  return (
+    <div className="flex items-center gap-3 p-4">
+      <div className="w-11 h-11 rounded-xl bg-steel-highlight/10 flex items-center justify-center text-steel-highlight shrink-0">
+        {isPptx ? <Presentation size={20} /> : <FileText size={20} />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-steel-dark truncate">
+          {artifact.filename || (isPptx ? "presentation.pptx" : "document.docx")}
+        </p>
+        <p className="text-[11px] text-steel/60 uppercase tracking-wider">
+          {isPptx ? "PowerPoint" : "Word document"} · ready to download
+        </p>
+      </div>
+      <button
+        onClick={download}
+        className="inline-flex items-center gap-1.5 bg-steel-dark hover:bg-black text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition shrink-0"
+      >
+        <Download size={14} />
+        Download
+      </button>
+    </div>
+  );
+}
+
 export function ArtifactView({ artifact }: { artifact: Artifact }) {
   const isChart = artifact.kind === "chartjs";
+  const isFile = artifact.kind === "docx" || artifact.kind === "pptx";
+  const icon = isChart ? (
+    <BarChart3 size={14} className="text-steel-highlight" />
+  ) : isFile ? (
+    artifact.kind === "pptx" ? (
+      <Presentation size={14} className="text-steel-highlight" />
+    ) : (
+      <FileText size={14} className="text-steel-highlight" />
+    )
+  ) : (
+    <LayoutDashboard size={14} className="text-steel-highlight" />
+  );
   return (
     <div className="mt-3 rounded-xl border border-navy-700/25 bg-white overflow-hidden shadow-sm">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-navy-700/15 bg-navy-900/60">
-        {isChart ? (
-          <BarChart3 size={14} className="text-steel-highlight" />
-        ) : (
-          <LayoutDashboard size={14} className="text-steel-highlight" />
-        )}
+        {icon}
         <span className="text-xs font-semibold text-steel-dark">
-          {artifact.title || (isChart ? "Chart" : "Dashboard")}
+          {artifact.title || (isChart ? "Chart" : isFile ? "Document" : "Dashboard")}
         </span>
         <span className="ml-auto text-[10px] text-steel/50 uppercase tracking-wider">
           {artifact.kind}
         </span>
       </div>
-      {isChart ? <ChartArtifact artifact={artifact} /> : <HtmlArtifact artifact={artifact} />}
+      {isFile ? (
+        <FileArtifact artifact={artifact} />
+      ) : isChart ? (
+        <ChartArtifact artifact={artifact} />
+      ) : (
+        <HtmlArtifact artifact={artifact} />
+      )}
     </div>
   );
 }
