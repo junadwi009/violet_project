@@ -54,7 +54,7 @@ class KnowledgeIndexer:
                 self.store.upsert_doc(
                     doc_id=doc_id,
                     path=rel,
-                    hash=digest,
+                    version=digest,
                     mtime=path.stat().st_mtime,
                     chunks=list(zip(pieces, vectors)),
                     model=self.embedder.name,
