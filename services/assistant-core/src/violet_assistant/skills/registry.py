@@ -21,6 +21,13 @@ class SkillRegistry:
                 continue  # skip malformed skill files
         return skills
 
+    def get(self, skill_id: str) -> Skill | None:
+        """Return the skill with this exact id, or None. Used for explicit /slash invocation."""
+        for skill in self.list_skills():
+            if skill.id == skill_id:
+                return skill
+        return None
+
     def detect(self, text: str) -> Skill | None:
         """Return the best-matching skill (most specific / longest trigger). None if no match.
 

@@ -82,6 +82,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             model=active_settings.artifact_model,
         )
 
+    # Web search (active when an OpenRouter-compatible key is configured).
+    web_provider = None
+    if active_settings.web_search_api_key:
+        web_provider = OpenAICompatibleProvider(
+            base_url=active_settings.web_search_base_url,
+            api_key=active_settings.web_search_api_key,
+            timeout_seconds=active_settings.llm_timeout_seconds,
+            default_headers={
+                "HTTP-Referer": "https://localhost/violet",
+                "X-Title": "Violet",
+            },
+        )
+
     orchestrator = ChatOrchestrator(
         settings=active_settings,
         provider=provider,
@@ -92,6 +105,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         cascade=cascade,
         skill_registry=skill_registry,
         skill_engine=skill_engine,
+        preferences=preferences,
+        web_provider=web_provider,
     )
 
     agents_dir = active_settings.agents_config_dir or (

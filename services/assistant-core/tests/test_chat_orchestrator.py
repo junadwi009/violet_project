@@ -92,3 +92,129 @@ def test_chat_orchestrator_persists_messages_and_candidates(tmp_path) -> None:
     assert len(response.memory_candidates) == 1
     assert len(pending_candidates) == 1
     assert pending_candidates[0]["status"] == "pending"
+
+
+class _FakeSkillEngine:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    async def generate(self, skill, content):
+        self.calls.append(skill.id)
+        return (
+            "here is your artifact",
+            [
+                {
+                    "id": "art-1",
+                    "kind": "html",
+                    "title": "T",
+                    "spec": None,
+                    "html": "<p>hi</p>",
+                    "file_base64": None,
+                    "filename": None,
+                    "mime": None,
+                }
+            ],
+        )
+
+
+class _FakeWebProvider:
+    name = "web"
+
+    def _request_json(self, method, path, payload):
+        assert payload["model"].endswith(":online")
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": "web says hi",
+                        "annotations": [
+                            {"type": "url_citation", "url_citation": {"url": "https://src"}}
+                        ],
+                    }
+                }
+            ]
+        }
+
+    async def chat(self, messages, options):  # pragma: no cover - unused
+        raise NotImplementedError
+
+    async def health(self):  # pragma: no cover - unused
+        raise NotImplementedError
+
+
+def _store(settings):
+    store = SQLiteStore.from_database_url(
+        settings.database_url,
+        base_dir=settings.repo_root,
+        migration_path=MIGRATION_PATH,
+    )
+    store.initialize()
+    return store
+
+
+def _chart_skill_dir(tmp_path: Path) -> Path:
+    d = tmp_path / "skills"
+    d.mkdir(exist_ok=True)
+    (d / "chart.json").write_text(
+        json.dumps(
+            {"id": "chart", "name": "Chart", "kind": "chartjs", "triggers": ["chart"], "prompt": "p"}
+        ),
+        encoding="utf-8",
+    )
+    return d
+
+
+def test_explicit_skill_id_forces_that_skill(tmp_path) -> None:
+    from violet_assistant.skills.registry import SkillRegistry
+
+    personality_dir = _write_personality(tmp_path)
+    settings = _settings(tmp_path, personality_dir)
+    engine = _FakeSkillEngine()
+    orchestrator = ChatOrchestrator(
+        settings=settings,
+        provider=MockLLMProvider(),
+        personality_loader=PersonalityLoader(personality_dir),
+        store=_store(settings),
+        skill_registry=SkillRegistry(_chart_skill_dir(tmp_path)),
+        skill_engine=engine,
+    )
+
+    response = asyncio.run(
+        orchestrator.chat(
+            ChatRequest(
+                content="please build me something",  # no trigger word
+                personality_id="violet.default",
+                skill_id="chart",
+            )
+        )
+    )
+
+    assert engine.calls == ["chart"]
+    assert response.text == "here is your artifact"
+    assert len(response.artifacts) == 1
+    assert response.artifacts[0].kind == "html"
+
+
+def test_web_search_routes_through_web_provider(tmp_path) -> None:
+    personality_dir = _write_personality(tmp_path)
+    settings = _settings(tmp_path, personality_dir)
+    orchestrator = ChatOrchestrator(
+        settings=settings,
+        provider=MockLLMProvider(),
+        personality_loader=PersonalityLoader(personality_dir),
+        store=_store(settings),
+        web_provider=_FakeWebProvider(),
+    )
+
+    response = asyncio.run(
+        orchestrator.chat(
+            ChatRequest(
+                content="what is the latest news?",
+                personality_id="violet.default",
+                web_search=True,
+            )
+        )
+    )
+
+    assert response.text == "web says hi"
+    assert response.citations == ["https://src"]
