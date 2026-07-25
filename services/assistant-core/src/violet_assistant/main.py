@@ -211,6 +211,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             knowledge_store,
             str(active_settings.knowledge_dir),
             knowledge_model,
+            knowledge_sources,
+            next((s for s in knowledge_sources if s.name == "gdrive"), None),
+            active_settings,
         )
     )
     app.include_router(create_skills_router(skill_registry, skill_engine is not None))
