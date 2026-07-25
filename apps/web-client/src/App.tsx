@@ -8,6 +8,7 @@ import {
   MemoryCandidate,
   MemoryInfo,
   PersonalityProfile,
+  KnowledgeInfo,
   ProviderInfo,
   RouterInfo,
   SessionSummary,
@@ -15,6 +16,7 @@ import {
   approveMemoryCandidate,
   deleteMemory,
   fetchAgents,
+  fetchKnowledge,
   fetchMemories,
   fetchMemoryCandidates,
   fetchMemoryInfo,
@@ -25,6 +27,7 @@ import {
   fetchSettings,
   fetchSkills,
   patchSettings,
+  reindexKnowledge,
   rejectMemoryCandidate,
   sendChat,
   updateMemory,
@@ -102,6 +105,7 @@ export function App() {
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [canvasOpen, setCanvasOpen] = useState(false);
   const [canvasArtifactId, setCanvasArtifactId] = useState<string | null>(null);
+  const [knowledge, setKnowledge] = useState<KnowledgeInfo | null>(null);
 
   const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer>>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -199,6 +203,9 @@ export function App() {
     fetchSkills()
       .then((response) => setSkills(response.enabled ? response.items : []))
       .catch(() => setSkills([]));
+    fetchKnowledge()
+      .then(setKnowledge)
+      .catch(() => setKnowledge(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -450,6 +457,32 @@ export function App() {
     }
   }
 
+  async function refreshKnowledge() {
+    try {
+      setKnowledge(await fetchKnowledge());
+    } catch {
+      /* knowledge base is optional */
+    }
+  }
+
+  async function handleReindex(full: boolean) {
+    setStatus({ tone: "busy", text: full ? "Rebuilding knowledge" : "Reindexing knowledge" });
+    try {
+      const report = await reindexKnowledge(full);
+      await refreshKnowledge();
+      setStatus({
+        tone: "ok",
+        text: `Indexed ${report.indexed}, skipped ${report.skipped}, removed ${report.removed}`,
+      });
+    } catch (error) {
+      setStatus({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Reindex failed",
+      });
+    }
+  }
+
+  const devMode = appSettings?.values.ui_mode === "developer";
   const webSearchAvailable = Boolean(appSettings?.values.web_search_enabled);
   const canvasEnabled = appSettings?.values.canvas_enabled !== false;
   const sessionArtifacts = useMemo(
@@ -564,6 +597,7 @@ export function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenHelp={() => setHelpOpen(true)}
         onOpenSkillLab={() => setSkillLabOpen(true)}
+        devMode={devMode}
       />
 
       <MemoryDrawer
@@ -609,6 +643,9 @@ export function App() {
           setSettingsOpen(false);
           setSkillLabOpen(true);
         }}
+        knowledge={knowledge}
+        onReindex={handleReindex}
+        devMode={devMode}
       />
 
       <HelpModal

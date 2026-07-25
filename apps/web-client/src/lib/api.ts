@@ -176,6 +176,41 @@ export async function patchSettings(
   });
 }
 
+export type KnowledgeDoc = {
+  path: string;
+  chunk_count: number;
+  status: string;
+  indexed_at: string;
+};
+
+export type KnowledgeInfo = {
+  dir: string;
+  provider: string;
+  enabled: boolean;
+  doc_count: number;
+  chunk_count: number;
+  docs: KnowledgeDoc[];
+};
+
+export async function fetchKnowledge(): Promise<KnowledgeInfo> {
+  return requestJson<KnowledgeInfo>("/api/knowledge");
+}
+
+export type ReindexReport = {
+  indexed: number;
+  skipped: number;
+  removed: number;
+  chunks: number;
+  errors: { path: string; error: string }[];
+};
+
+export async function reindexKnowledge(full = false): Promise<ReindexReport> {
+  return requestJson<ReindexReport>("/api/knowledge/reindex", {
+    method: "POST",
+    body: JSON.stringify({ full }),
+  });
+}
+
 export type FetchResult = {
   url: string;
   title: string;

@@ -7,6 +7,7 @@ type FloatingToolsProps = {
   onOpenSettings: () => void;
   onOpenHelp: () => void;
   onOpenSkillLab: () => void;
+  devMode: boolean;
 };
 
 export function FloatingTools({
@@ -16,6 +17,7 @@ export function FloatingTools({
   onOpenSettings,
   onOpenHelp,
   onOpenSkillLab,
+  devMode,
 }: FloatingToolsProps) {
   if (!visible) return null;
   return (
@@ -37,18 +39,22 @@ export function FloatingTools({
           </span>
         </button>
 
-        <div className="w-6 h-px bg-navy-700/20" />
+        {devMode && (
+          <>
+            <div className="w-6 h-px bg-navy-700/20" />
 
-        <button
-          onClick={onOpenSkillLab}
-          className="w-8 h-8 rounded-full flex items-center justify-center text-steel hover:text-steel-dark hover:bg-steel-ice transition relative group"
-          title="Skill Lab"
-        >
-          <FlaskConical size={16} />
-          <span className="absolute right-12 scale-0 group-hover:scale-100 bg-steel-dark text-xs px-2.5 py-1 rounded-md text-white transition-all whitespace-nowrap shadow-md">
-            Skill Lab
-          </span>
-        </button>
+            <button
+              onClick={onOpenSkillLab}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-steel hover:text-steel-dark hover:bg-steel-ice transition relative group"
+              title="Skill Lab"
+            >
+              <FlaskConical size={16} />
+              <span className="absolute right-12 scale-0 group-hover:scale-100 bg-steel-dark text-xs px-2.5 py-1 rounded-md text-white transition-all whitespace-nowrap shadow-md">
+                Skill Lab
+              </span>
+            </button>
+          </>
+        )}
 
         <div className="w-6 h-px bg-navy-700/20" />
 
