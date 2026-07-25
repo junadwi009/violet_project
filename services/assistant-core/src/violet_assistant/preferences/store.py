@@ -37,6 +37,7 @@ EDITABLE_KEYS: dict[str, Callable[[Any], bool]] = {
     "default_personality": _is_str,
     "default_provider": _is_str,
     "ui_mode": lambda v: v in {"user", "developer"},
+    "knowledge_auto_sync": _is_bool,
 }
 
 
@@ -52,6 +53,7 @@ def _defaults(settings: Settings) -> dict[str, Any]:
         "default_personality": "violet.default",
         "default_provider": settings.llm_provider,
         "ui_mode": "user",
+        "knowledge_auto_sync": settings.knowledge_auto_sync,
     }
 
 

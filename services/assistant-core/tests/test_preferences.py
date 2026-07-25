@@ -91,3 +91,12 @@ def test_ui_mode_default_and_validation(tmp_path, settings):
     assert store.effective(settings)["ui_mode"] == "developer"
     with pytest.raises(ValueError):
         store.patch({"ui_mode": "root"})
+
+
+def test_knowledge_auto_sync_pref(tmp_path, settings):
+    store = PreferencesStore(tmp_path / "preferences.json")
+    assert store.effective(settings)["knowledge_auto_sync"] is False
+    store.patch({"knowledge_auto_sync": True})
+    assert store.effective(settings)["knowledge_auto_sync"] is True
+    with pytest.raises(ValueError):
+        store.patch({"knowledge_auto_sync": "yes"})

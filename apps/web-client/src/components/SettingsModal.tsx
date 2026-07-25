@@ -375,6 +375,15 @@ export function SettingsModal({
                   {knowledge.doc_count} docs · {knowledge.chunk_count} chunks ·{" "}
                   {knowledge.provider}
                 </div>
+                <ToggleRow
+                  label="Auto-sync"
+                  on={values?.knowledge_auto_sync === true}
+                  onToggle={() =>
+                    onPatchSettings({
+                      knowledge_auto_sync: !(values?.knowledge_auto_sync === true),
+                    })
+                  }
+                />
                 {knowledge.sources?.map((s) => (
                   <div
                     key={s.name}
@@ -384,6 +393,14 @@ export function SettingsModal({
                     <span className={s.connected ? "text-emerald-600" : "text-amber-600"}>
                       {s.connected ? "connected" : s.detail}
                     </span>
+                    {knowledge.auto_sync?.last_sync?.[s.name]?.at && (
+                      <span className="text-steel/50">
+                        · synced{" "}
+                        {new Date(
+                          knowledge.auto_sync.last_sync[s.name]!.at!,
+                        ).toLocaleTimeString()}
+                      </span>
+                    )}
                     {s.name === "gdrive" && !s.connected && s.detail !== "not_configured" && (
                       <button
                         onClick={onConnectGDrive}

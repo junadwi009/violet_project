@@ -95,3 +95,25 @@ def _gdrive_status_ep(router):
         if route.path == "/api/knowledge/gdrive/status":
             return route.endpoint
     raise KeyError("gdrive/status")
+
+
+@pytest.mark.asyncio
+async def test_status_includes_auto_sync(tmp_path):
+    from violet_assistant.config import load_settings
+    from violet_assistant.knowledge.auto_sync import AutoSyncScheduler
+    from violet_assistant.preferences.store import PreferencesStore
+
+    kdir = tmp_path / "knowledge"
+    kdir.mkdir()
+    store = SqliteVectorStore(tmp_path / "k.db")
+    store.initialize()
+    src = LocalFolderSource(kdir)
+    indexer = KnowledgeIndexer(MockEmbedder(), store, [src])
+    settings = load_settings(tmp_path)
+    scheduler = AutoSyncScheduler(indexer, PreferencesStore(tmp_path / "p.json"), settings)
+    router = create_knowledge_router(
+        indexer, store, str(kdir), "mock", [src], None, settings, scheduler
+    )
+    body = await _endpoint(router, "GET")()
+    assert body["auto_sync"]["enabled"] is False
+    assert body["auto_sync"]["interval"] == 30

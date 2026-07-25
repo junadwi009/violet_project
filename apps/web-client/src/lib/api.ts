@@ -191,6 +191,16 @@ export type SourceStatus = {
   folder_id?: string;
 };
 
+export type AutoSyncInfo = {
+  enabled: boolean;
+  interval?: number;
+  gdrive_interval?: number;
+  last_sync?: Record<
+    string,
+    { at?: string; indexed?: number; error?: string } | null
+  >;
+};
+
 export type KnowledgeInfo = {
   dir: string;
   provider: string;
@@ -199,6 +209,7 @@ export type KnowledgeInfo = {
   chunk_count: number;
   docs: KnowledgeDoc[];
   sources: SourceStatus[];
+  auto_sync: AutoSyncInfo;
 };
 
 export async function fetchKnowledge(): Promise<KnowledgeInfo> {
