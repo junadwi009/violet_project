@@ -23,10 +23,10 @@ def is_image(filename: str) -> bool:
     return extension(filename) in IMAGE_EXTS
 
 
-def _clip(text: str) -> tuple[str, bool]:
+def _clip(text: str, max_chars: int | None) -> tuple[str, bool]:
     text = text.strip()
-    if len(text) > MAX_TEXT_CHARS:
-        return text[:MAX_TEXT_CHARS].rstrip() + "\n… [truncated]", True
+    if max_chars is not None and len(text) > max_chars:
+        return text[:max_chars].rstrip() + "\n… [truncated]", True
     return text, False
 
 
@@ -97,9 +97,13 @@ def _extract_docx(data: bytes) -> str:
     return "\n".join(parts)
 
 
-def extract_text(filename: str, data: bytes) -> dict:
+def extract_text(
+    filename: str, data: bytes, max_chars: int | None = MAX_TEXT_CHARS
+) -> dict:
     """Extract text from a document. Returns {kind, text, chars, truncated}.
 
+    ``max_chars`` clips the output (default keeps the upload limit); pass ``None``
+    to disable clipping (used by knowledge-base ingestion, which chunks the full text).
     Raises ExtractionError for images (route to OCR) and unsupported/empty files.
     """
     ext = extension(filename)
@@ -126,7 +130,7 @@ def extract_text(filename: str, data: bytes) -> dict:
     else:
         raise ExtractionError(f"Unsupported file type: {ext or '(none)'}")
 
-    text, truncated = _clip(raw)
+    text, truncated = _clip(raw, max_chars)
     if not text:
         raise ExtractionError("File contained no readable text.")
     return {"kind": kind, "text": text, "chars": len(text), "truncated": truncated}

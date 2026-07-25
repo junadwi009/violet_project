@@ -81,3 +81,14 @@ def test_mime_for() -> None:
     assert mime_for("a.png") == "image/png"
     assert mime_for("a.JPG") == "image/jpeg"
     assert mime_for("a.webp") == "image/webp"
+
+
+def test_extract_text_respects_max_chars_none():
+    from violet_assistant.ingestion.extractors import extract_text
+
+    big = ("x" * 50_000).encode("utf-8")
+    clipped = extract_text("a.txt", big)  # default clip
+    full = extract_text("a.txt", big, max_chars=None)
+    assert clipped["truncated"] is True
+    assert full["truncated"] is False
+    assert full["chars"] >= 50_000
