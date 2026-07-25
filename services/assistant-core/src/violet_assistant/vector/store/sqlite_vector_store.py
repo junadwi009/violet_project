@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS knowledge_docs (
   doc_id TEXT PRIMARY KEY,
   path TEXT UNIQUE,
   hash TEXT,
+  version TEXT,
+  origin TEXT DEFAULT 'local',
   mtime REAL,
   chunk_count INTEGER,
   status TEXT,
@@ -61,6 +63,22 @@ class SqliteVectorStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
             connection.executescript(_SCHEMA)
+            self._migrate(connection)
+
+    def _migrate(self, connection) -> None:
+        cols = {row["name"] for row in connection.execute("PRAGMA table_info(knowledge_docs)")}
+        if "version" not in cols:
+            connection.execute("ALTER TABLE knowledge_docs ADD COLUMN version TEXT")
+            connection.execute(
+                "UPDATE knowledge_docs SET version = hash WHERE version IS NULL"
+            )
+        if "origin" not in cols:
+            connection.execute(
+                "ALTER TABLE knowledge_docs ADD COLUMN origin TEXT DEFAULT 'local'"
+            )
+            connection.execute(
+                "UPDATE knowledge_docs SET origin = 'local' WHERE origin IS NULL"
+            )
 
     def doc_by_path(self, path: str) -> dict | None:
         with self._connect() as connection:
@@ -69,20 +87,45 @@ class SqliteVectorStore:
             ).fetchone()
         return dict(row) if row else None
 
-    def upsert_doc(self, doc_id, path, hash, mtime, chunks, model) -> None:
+    def doc_by_id(self, doc_id: str) -> dict | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM knowledge_docs WHERE doc_id = ?", (doc_id,)
+            ).fetchone()
+        return dict(row) if row else None
+
+    def delete_missing(self, origin: str, seen_ids: set[str]) -> int:
+        removed = 0
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT doc_id FROM knowledge_docs WHERE origin = ?", (origin,)
+            ).fetchall()
+            for row in rows:
+                if row["doc_id"] not in seen_ids:
+                    connection.execute(
+                        "DELETE FROM knowledge_chunks WHERE doc_id = ?", (row["doc_id"],)
+                    )
+                    connection.execute(
+                        "DELETE FROM knowledge_docs WHERE doc_id = ?", (row["doc_id"],)
+                    )
+                    removed += 1
+        return removed
+
+    def upsert_doc(self, doc_id, path, version, mtime, chunks, model, origin="local") -> None:
         with self._connect() as connection:
             connection.execute(
                 "DELETE FROM knowledge_chunks WHERE doc_id = ?", (doc_id,)
             )
             connection.execute(
                 """INSERT INTO knowledge_docs
-                     (doc_id, path, hash, mtime, chunk_count, status, indexed_at)
-                   VALUES (?, ?, ?, ?, ?, 'indexed', CURRENT_TIMESTAMP)
+                     (doc_id, path, hash, version, origin, mtime, chunk_count, status, indexed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 'indexed', CURRENT_TIMESTAMP)
                    ON CONFLICT(doc_id) DO UPDATE SET
-                     path=excluded.path, hash=excluded.hash, mtime=excluded.mtime,
+                     path=excluded.path, hash=excluded.hash, version=excluded.version,
+                     origin=excluded.origin, mtime=excluded.mtime,
                      chunk_count=excluded.chunk_count, status='indexed',
                      indexed_at=CURRENT_TIMESTAMP""",
-                (doc_id, path, hash, mtime, len(chunks)),
+                (doc_id, path, version, version, origin, mtime, len(chunks)),
             )
             for index, (text, vector) in enumerate(chunks):
                 connection.execute(
@@ -128,20 +171,33 @@ class SqliteVectorStore:
             )
             connection.execute("DELETE FROM knowledge_docs WHERE doc_id = ?", (doc_id,))
 
-    def list_docs(self) -> list[dict]:
+    def list_docs(self, origin: str | None = None) -> list[dict]:
+        query = "SELECT path, chunk_count, status, indexed_at, origin FROM knowledge_docs"
+        params: tuple = ()
+        if origin is not None:
+            query += " WHERE origin = ?"
+            params = (origin,)
+        query += " ORDER BY path"
         with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT path, chunk_count, status, indexed_at "
-                "FROM knowledge_docs ORDER BY path"
-            ).fetchall()
+            rows = connection.execute(query, params).fetchall()
         return [dict(row) for row in rows]
 
-    def stats(self) -> dict:
+    def stats(self, origin: str | None = None) -> dict:
         with self._connect() as connection:
-            docs = connection.execute(
-                "SELECT COUNT(*) AS c FROM knowledge_docs"
-            ).fetchone()["c"]
-            chunks = connection.execute(
-                "SELECT COUNT(*) AS c FROM knowledge_chunks"
-            ).fetchone()["c"]
+            if origin is None:
+                docs = connection.execute(
+                    "SELECT COUNT(*) AS c FROM knowledge_docs"
+                ).fetchone()["c"]
+                chunks = connection.execute(
+                    "SELECT COUNT(*) AS c FROM knowledge_chunks"
+                ).fetchone()["c"]
+            else:
+                docs = connection.execute(
+                    "SELECT COUNT(*) AS c FROM knowledge_docs WHERE origin = ?", (origin,)
+                ).fetchone()["c"]
+                chunks = connection.execute(
+                    "SELECT COUNT(*) AS c FROM knowledge_chunks WHERE doc_id IN "
+                    "(SELECT doc_id FROM knowledge_docs WHERE origin = ?)",
+                    (origin,),
+                ).fetchone()["c"]
         return {"doc_count": docs, "chunk_count": chunks}

@@ -22,6 +22,12 @@ dependencies = [
 dev = [
   "pytest>=8.0,<9.0",
 ]
+# Google Drive knowledge source (Phase C). Install with: pip install -e ".[drive]"
+drive = [
+  "google-api-python-client>=2.100",
+  "google-auth>=2.30",
+  "google-auth-oauthlib>=1.2",
+]
 
 [tool.setuptools.packages.find]
 where = [

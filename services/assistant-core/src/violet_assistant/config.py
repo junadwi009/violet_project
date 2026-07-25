@@ -89,6 +89,13 @@ class Settings:
     knowledge_scan_on_startup: bool = True
     knowledge_chunk_size: int = 1000
     knowledge_chunk_overlap: int = 150
+    knowledge_sources: str = "local"
+    # Google Drive connector (Phase C).
+    gdrive_folder_id: str = ""
+    gdrive_shared_drive_id: str = ""
+    gdrive_token_path: str = ""
+    google_oauth_client_secrets: str = ""
+    gdrive_export_doc: str = "text/markdown"
 
 
 def load_settings(repo_root: Path | None = None) -> Settings:
@@ -186,6 +193,14 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         knowledge_scan_on_startup=_env_bool("KNOWLEDGE_SCAN_ON_STARTUP", True),
         knowledge_chunk_size=int(os.getenv("KNOWLEDGE_CHUNK_SIZE", "1000")),
         knowledge_chunk_overlap=int(os.getenv("KNOWLEDGE_CHUNK_OVERLAP", "150")),
+        knowledge_sources=os.getenv("KNOWLEDGE_SOURCES", "local"),
+        gdrive_folder_id=os.getenv("GDRIVE_FOLDER_ID", ""),
+        gdrive_shared_drive_id=os.getenv("GDRIVE_SHARED_DRIVE_ID", ""),
+        gdrive_token_path=os.getenv(
+            "GDRIVE_TOKEN_PATH", str(root / "data" / "gdrive_token.json")
+        ),
+        google_oauth_client_secrets=os.getenv("GOOGLE_OAUTH_CLIENT_SECRETS", ""),
+        gdrive_export_doc=os.getenv("GDRIVE_EXPORT_DOC", "text/markdown"),
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from violet_assistant.knowledge.indexer import KnowledgeIndexer
+from violet_assistant.knowledge.sources.local_folder import LocalFolderSource
 from violet_assistant.vector.embeddings.mock_embedder import MockEmbedder
 from violet_assistant.vector.store.sqlite_vector_store import SqliteVectorStore
 
@@ -12,7 +13,8 @@ def _indexer(tmp_path):
     kdir.mkdir()
     store = SqliteVectorStore(tmp_path / "knowledge.db")
     store.initialize()
-    return KnowledgeIndexer(MockEmbedder(), store, kdir), kdir, store
+    indexer = KnowledgeIndexer(MockEmbedder(), store, [LocalFolderSource(kdir)])
+    return indexer, kdir, store
 
 
 @pytest.mark.asyncio
@@ -48,7 +50,6 @@ async def test_reindex_skips_unsupported_extensions(tmp_path):
 @pytest.mark.asyncio
 async def test_reindex_records_error_for_unreadable_supported_file(tmp_path):
     indexer, kdir, store = _indexer(tmp_path)
-    # Supported extension but no readable text → extract_text raises → captured.
     (kdir / "empty.txt").write_text("   ", encoding="utf-8")
     report = await indexer.reindex()
     assert report["indexed"] == 0
@@ -62,4 +63,18 @@ async def test_reindex_full_rebuild(tmp_path):
     (kdir / "a.txt").write_text("hello", encoding="utf-8")
     await indexer.reindex()
     report = await indexer.reindex(full=True)
-    assert report["indexed"] == 1  # full ignores the hash-skip
+    assert report["indexed"] == 1
+
+
+@pytest.mark.asyncio
+async def test_reindex_only_one_origin_leaves_others(tmp_path):
+    indexer, kdir, store = _indexer(tmp_path)
+    (kdir / "a.txt").write_text("hello", encoding="utf-8")
+    await indexer.reindex()
+    # inject an unrelated gdrive doc directly, then reindex only=local
+    store.upsert_doc(
+        "gdrive:1", "Drive/x", "v1", 1.0, [("y", [1.0, 0.0])], "mock", origin="gdrive"
+    )
+    report = await indexer.reindex(only="local")
+    assert store.stats(origin="gdrive")["doc_count"] == 1  # untouched
+    assert report["sources"]["local"]["skipped"] == 1
