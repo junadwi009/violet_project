@@ -51,6 +51,7 @@ import { MemoryDrawer } from "./components/MemoryDrawer";
 import { SettingsModal } from "./components/SettingsModal";
 import { HelpModal } from "./components/HelpModal";
 import { SkillLab } from "./components/SkillLab";
+import { CanvasPanel } from "./components/CanvasPanel";
 
 type Status = {
   tone: "idle" | "busy" | "ok" | "error";
@@ -99,6 +100,8 @@ export function App() {
   const [webSearchOn, setWebSearchOn] = useState(false);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
   const [skills, setSkills] = useState<SkillInfo[]>([]);
+  const [canvasOpen, setCanvasOpen] = useState(false);
+  const [canvasArtifactId, setCanvasArtifactId] = useState<string | null>(null);
 
   const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer>>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -448,6 +451,16 @@ export function App() {
   }
 
   const webSearchAvailable = Boolean(appSettings?.values.web_search_enabled);
+  const canvasEnabled = appSettings?.values.canvas_enabled !== false;
+  const sessionArtifacts = useMemo(
+    () => messages.flatMap((message) => message.artifacts ?? []),
+    [messages],
+  );
+
+  function openArtifact(id: string) {
+    setCanvasArtifactId(id);
+    setCanvasOpen(true);
+  }
 
   const composerProps = {
     value: draft,
@@ -514,6 +527,7 @@ export function App() {
               messages={messages}
               typing={status.tone === "busy" && status.text === "Thinking"}
               assistantName={assistantName}
+              onOpenArtifact={canvasEnabled ? openArtifact : undefined}
             />
           )}
         </div>
@@ -526,6 +540,15 @@ export function App() {
 
         <VoiceOverlay open={isListening} name={assistantName} onStop={handleListen} />
       </main>
+
+      {canvasOpen && canvasEnabled && (
+        <CanvasPanel
+          artifacts={sessionArtifacts}
+          activeId={canvasArtifactId}
+          onSelect={setCanvasArtifactId}
+          onClose={() => setCanvasOpen(false)}
+        />
+      )}
 
       <AvatarPresence
         name={assistantName}
