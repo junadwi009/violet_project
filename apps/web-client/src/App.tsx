@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   AgentInfo,
+  AppSettings,
   ChatMessage,
   Memory,
   MemoryCandidate,
@@ -10,6 +11,7 @@ import {
   ProviderInfo,
   RouterInfo,
   SessionSummary,
+  SkillInfo,
   approveMemoryCandidate,
   deleteMemory,
   fetchAgents,
@@ -20,6 +22,9 @@ import {
   fetchProviders,
   fetchSessionMessages,
   fetchSessions,
+  fetchSettings,
+  fetchSkills,
+  patchSettings,
   rejectMemoryCandidate,
   sendChat,
   updateMemory,
@@ -90,6 +95,10 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [skillLabOpen, setSkillLabOpen] = useState(false);
+  const [activeSkill, setActiveSkill] = useState<{ id: string; name: string } | null>(null);
+  const [webSearchOn, setWebSearchOn] = useState(false);
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+  const [skills, setSkills] = useState<SkillInfo[]>([]);
 
   const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer>>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -181,6 +190,12 @@ export function App() {
     fetchAgents()
       .then((response) => setAgents(response.enabled ? response.items : []))
       .catch(() => setAgents([]));
+    fetchSettings()
+      .then(setAppSettings)
+      .catch(() => setAppSettings(null));
+    fetchSkills()
+      .then((response) => setSkills(response.enabled ? response.items : []))
+      .catch(() => setSkills([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -219,8 +234,10 @@ export function App() {
         personalityId,
         selectedProvider,
         selectedAgent || null,
+        { skillId: activeSkill?.id ?? null, webSearch: webSearchOn },
       );
       setSessionId(response.session_id);
+      setActiveSkill(null); // one-shot: skill applies to this message only
       setAvatarEmotion(normalizeEmotion(response.emotion));
       setMessages((current) => [
         ...current,
@@ -229,6 +246,7 @@ export function App() {
           role: "assistant",
           content: response.text,
           artifacts: response.artifacts,
+          citations: response.citations,
         },
       ]);
 
@@ -415,6 +433,22 @@ export function App() {
     }
   }
 
+  async function handlePatchSettings(
+    changes: Record<string, string | number | boolean>,
+  ) {
+    try {
+      const next = await patchSettings(changes);
+      setAppSettings(next);
+    } catch (error) {
+      setStatus({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Settings failed",
+      });
+    }
+  }
+
+  const webSearchAvailable = Boolean(appSettings?.values.web_search_enabled);
+
   const composerProps = {
     value: draft,
     onChange: setDraft,
@@ -435,6 +469,11 @@ export function App() {
       ? { filename: attachment.filename, ocr: attachment.ocr }
       : null,
     onRemoveAttachment: () => setAttachment(null),
+    activeSkill,
+    onPickSkill: setActiveSkill,
+    webSearchAvailable,
+    webSearchOn: webSearchOn && webSearchAvailable,
+    onToggleWebSearch: () => setWebSearchOn((value) => !value),
   };
 
   return (

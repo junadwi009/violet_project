@@ -9,10 +9,14 @@ import {
   Paperclip,
   FileText,
   Loader2,
+  Globe,
+  Sparkles,
   X,
 } from "lucide-react";
+import { SkillPalette } from "./SkillPalette";
 
 type Attachment = { filename: string; ocr: boolean };
+type ActiveSkill = { id: string; name: string };
 
 type ComposerProps = {
   value: string;
@@ -33,6 +37,11 @@ type ComposerProps = {
   attaching: boolean;
   attachment: Attachment | null;
   onRemoveAttachment: () => void;
+  activeSkill: ActiveSkill | null;
+  onPickSkill: (skill: ActiveSkill | null) => void;
+  webSearchAvailable: boolean;
+  webSearchOn: boolean;
+  onToggleWebSearch: () => void;
 };
 
 export function Composer(props: ComposerProps) {
@@ -55,14 +64,45 @@ export function Composer(props: ComposerProps) {
     attaching,
     attachment,
     onRemoveAttachment,
+    activeSkill,
+    onPickSkill,
+    webSearchAvailable,
+    webSearchOn,
+    onToggleWebSearch,
   } = props;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const slashQuery =
+    !activeSkill && value.startsWith("/") ? value.slice(1) : null;
 
   return (
     <form
       onSubmit={onSubmit}
       className={variant === "footer" ? "relative w-full lg:w-3/5 ml-0 mr-auto lg:ml-12" : "relative w-full"}
     >
+      {slashQuery !== null && (
+        <SkillPalette
+          query={slashQuery}
+          onPick={(skill) => {
+            onPickSkill({ id: skill.id, name: skill.name });
+            onChange("");
+          }}
+          onClose={() => onChange("")}
+        />
+      )}
+      {activeSkill && (
+        <div className="mb-2 mr-2 inline-flex items-center gap-2 bg-steel-highlight/10 border border-steel-highlight/30 rounded-full pl-3 pr-1.5 py-1 text-xs text-steel-highlight max-w-full">
+          <Sparkles size={12} className="shrink-0" />
+          <span className="truncate max-w-[180px]">/{activeSkill.id} · {activeSkill.name}</span>
+          <button
+            type="button"
+            onClick={() => onPickSkill(null)}
+            className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-white/70"
+            title="Remove skill"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
       {attachment && (
         <div className="mb-2 inline-flex items-center gap-2 bg-steel-ice border border-navy-700/20 rounded-full pl-3 pr-1.5 py-1 text-xs text-steel-dark max-w-full">
           <FileText size={13} className="text-steel-highlight shrink-0" />
@@ -104,8 +144,16 @@ export function Composer(props: ComposerProps) {
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && slashQuery !== null) {
+              e.preventDefault();
+              onChange("");
+            }
+          }}
           autoComplete="off"
-          placeholder={`Ask ${assistantName}…`}
+          placeholder={
+            activeSkill ? `Prompt for /${activeSkill.id}…` : `Ask ${assistantName}…`
+          }
           className="flex-1 bg-transparent text-steel-dark placeholder-steel/50 font-medium px-3 text-sm focus:outline-none py-1 w-full"
         />
         <div className="flex items-center gap-2">
@@ -118,6 +166,21 @@ export function Composer(props: ComposerProps) {
             <span>{providerLabel}</span>
             <ChevronDown size={11} />
           </button>
+
+          {webSearchAvailable && (
+            <button
+              type="button"
+              onClick={onToggleWebSearch}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition ${
+                webSearchOn
+                  ? "bg-steel-highlight/15 text-steel-highlight"
+                  : "text-steel hover:bg-steel-ice"
+              }`}
+              title={webSearchOn ? "Web search on" : "Search the web"}
+            >
+              <Globe size={17} />
+            </button>
+          )}
 
           {speechOutputAvailable && (
             <button

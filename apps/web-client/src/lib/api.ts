@@ -14,6 +14,7 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   artifacts?: Artifact[];
+  citations?: string[];
 };
 
 export type SkillInfo = {
@@ -54,6 +55,7 @@ export type ChatResponse = {
   tool_requests: unknown[];
   artifacts: Artifact[];
   agent: string | null;
+  citations: string[];
 };
 
 export type AgentInfo = {
@@ -139,6 +141,7 @@ export async function sendChat(
   personalityId: string,
   provider?: string | null,
   agent?: string | null,
+  opts?: { skillId?: string | null; webSearch?: boolean },
 ): Promise<ChatResponse> {
   return requestJson<ChatResponse>("/api/chat", {
     method: "POST",
@@ -148,7 +151,43 @@ export async function sendChat(
       personality_id: personalityId,
       provider: provider ?? null,
       agent: agent ?? null,
+      skill_id: opts?.skillId ?? null,
+      web_search: opts?.webSearch ?? false,
     }),
+  });
+}
+
+export type AppSettings = {
+  values: Record<string, string | number | boolean>;
+  defaults: Record<string, string | number | boolean>;
+  overridden: string[];
+};
+
+export async function fetchSettings(): Promise<AppSettings> {
+  return requestJson<AppSettings>("/api/settings");
+}
+
+export async function patchSettings(
+  changes: Record<string, string | number | boolean>,
+): Promise<AppSettings> {
+  return requestJson<AppSettings>("/api/settings", {
+    method: "PATCH",
+    body: JSON.stringify(changes),
+  });
+}
+
+export type FetchResult = {
+  url: string;
+  title: string;
+  text: string;
+  chars: number;
+  truncated: boolean;
+};
+
+export async function fetchUrl(url: string): Promise<FetchResult> {
+  return requestJson<FetchResult>("/api/fetch", {
+    method: "POST",
+    body: JSON.stringify({ url }),
   });
 }
 
