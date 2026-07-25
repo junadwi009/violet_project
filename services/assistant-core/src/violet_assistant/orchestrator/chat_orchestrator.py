@@ -149,10 +149,14 @@ class ChatOrchestrator:
             )
             llm_response = LLMResponse(text=intro, emotion="focused")
             artifacts = [Artifact.model_validate(item) for item in artifact_dicts]
+            # The skill engine only sees the user's content, never the retrieved
+            # context — so retrieved sources must not be cited on this answer.
+            citations = []
         elif skill is not None and self.skill_engine is not None:
             intro, artifact_dicts = await self.skill_engine.generate(skill, request.content)
             llm_response = LLMResponse(text=intro, emotion="focused")
             artifacts = [Artifact.model_validate(item) for item in artifact_dicts]
+            citations = []
         elif (
             self.agent_registry is not None
             and self.agent_runner is not None

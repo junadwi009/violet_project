@@ -260,3 +260,77 @@ def test_retrieved_sources_become_citations(tmp_path) -> None:
 
     assert response.text == "answer"
     assert response.citations == ["notes.md"]
+
+
+def test_skill_response_does_not_carry_retrieved_citations(tmp_path) -> None:
+    """A skill/artifact answer never sees the retrieved context, so it must not cite it."""
+    from violet_assistant.skills.registry import SkillRegistry
+
+    personality_dir = _write_personality(tmp_path)
+    settings = _settings(tmp_path, personality_dir)
+    orchestrator = ChatOrchestrator(
+        settings=settings,
+        provider=_StubProvider(),
+        personality_loader=PersonalityLoader(personality_dir),
+        store=_store(settings),
+        retriever=_FakeRetriever(),  # would supply "notes.md"
+        skill_registry=SkillRegistry(_chart_skill_dir(tmp_path)),
+        skill_engine=_FakeSkillEngine(),
+    )
+
+    response = asyncio.run(
+        orchestrator.chat(
+            ChatRequest(
+                content="plot this",
+                personality_id="violet.default",
+                skill_id="chart",
+            )
+        )
+    )
+
+    assert len(response.artifacts) == 1
+    assert response.citations == []
+
+
+def test_auto_detected_skill_also_drops_citations(tmp_path) -> None:
+    from violet_assistant.skills.registry import SkillRegistry
+
+    personality_dir = _write_personality(tmp_path)
+    settings = _settings(tmp_path, personality_dir)
+    orchestrator = ChatOrchestrator(
+        settings=settings,
+        provider=_StubProvider(),
+        personality_loader=PersonalityLoader(personality_dir),
+        store=_store(settings),
+        retriever=_FakeRetriever(),
+        skill_registry=SkillRegistry(_chart_skill_dir(tmp_path)),
+        skill_engine=_FakeSkillEngine(),
+    )
+
+    response = asyncio.run(
+        orchestrator.chat(
+            ChatRequest(content="make me a chart", personality_id="violet.default")
+        )
+    )
+
+    assert len(response.artifacts) == 1
+    assert response.citations == []
+
+
+def test_non_skill_answer_keeps_retrieved_citations(tmp_path) -> None:
+    """Guard: the normal path must still cite retrieved sources."""
+    personality_dir = _write_personality(tmp_path)
+    settings = _settings(tmp_path, personality_dir)
+    orchestrator = ChatOrchestrator(
+        settings=settings,
+        provider=_StubProvider(),
+        personality_loader=PersonalityLoader(personality_dir),
+        store=_store(settings),
+        retriever=_FakeRetriever(),
+    )
+    response = asyncio.run(
+        orchestrator.chat(
+            ChatRequest(content="tell me about the notes", personality_id="violet.default")
+        )
+    )
+    assert response.citations == ["notes.md"]
