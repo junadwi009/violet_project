@@ -5,7 +5,13 @@ import json
 from typing import Sequence
 from urllib import error, request
 
-from violet_assistant.llm.base import LLMOptions, LLMResponse, Message, ProviderHealth
+from violet_assistant.llm.base import (
+    LLMOptions,
+    LLMResponse,
+    Message,
+    ProviderHealth,
+    ToolCall,
+)
 
 
 class OpenAICompatibleProvider:
@@ -36,16 +42,41 @@ class OpenAICompatibleProvider:
     ) -> LLMResponse:
         payload = {
             "model": options.model,
-            "messages": [
-                {"role": message.role, "content": message.content}
-                for message in messages
-            ],
+            "messages": [self._serialize(message) for message in messages],
             "temperature": options.temperature,
             "stream": False,
         }
+        if options.tools:
+            payload["tools"] = options.tools
         api_response = self._request_json("POST", "/chat/completions", payload)
-        text = api_response["choices"][0]["message"]["content"]
-        return LLMResponse(text=text, emotion="focused")
+        message = api_response["choices"][0]["message"]
+        text = message.get("content") or ""
+        calls = []
+        for raw in message.get("tool_calls") or []:
+            function = raw.get("function") or {}
+            try:
+                arguments = json.loads(function.get("arguments") or "{}")
+            except json.JSONDecodeError:
+                arguments = {}  # reported to the model as a tool error by the loop
+            if not isinstance(arguments, dict):
+                arguments = {}
+            calls.append(
+                ToolCall(
+                    id=raw.get("id", ""),
+                    name=function.get("name", ""),
+                    arguments=arguments,
+                )
+            )
+        return LLMResponse(text=text, emotion="focused", tool_calls=calls)
+
+    @staticmethod
+    def _serialize(message: Message) -> dict:
+        data: dict = {"role": message.role, "content": message.content}
+        if message.tool_call_id:
+            data["tool_call_id"] = message.tool_call_id
+        if message.tool_calls:
+            data["tool_calls"] = message.tool_calls
+        return data
 
     def _health_sync(self) -> ProviderHealth:
         try:
