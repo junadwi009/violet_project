@@ -67,6 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     knowledge_store = None
     knowledge_model = "none"
     knowledge_sources: list = []
+    knowledge_scheduler = None
     if active_settings.rag_provider.strip().lower() == "vector":
         from violet_assistant.knowledge.sources.local_folder import LocalFolderSource
 
@@ -103,6 +104,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 )
             except Exception:  # noqa: BLE001 — startup scan is best-effort
                 pass
+        from violet_assistant.knowledge.auto_sync import AutoSyncScheduler
+
+        knowledge_scheduler = AutoSyncScheduler(
+            knowledge_indexer, preferences, active_settings
+        )
 
     cascade = None
     if active_settings.llm_router == "cascade":
@@ -214,6 +220,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             knowledge_sources,
             next((s for s in knowledge_sources if s.name == "gdrive"), None),
             active_settings,
+            knowledge_scheduler,
         )
     )
     app.include_router(create_skills_router(skill_registry, skill_engine is not None))
@@ -237,6 +244,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             imported_dir=agents_dir / "imported",
         )
     )
+
+    @app.on_event("startup")
+    async def _start_autosync() -> None:  # pragma: no cover — server lifecycle
+        if knowledge_scheduler is not None:
+            await knowledge_scheduler.start()
+
+    @app.on_event("shutdown")
+    async def _stop_autosync() -> None:  # pragma: no cover — server lifecycle
+        if knowledge_scheduler is not None:
+            await knowledge_scheduler.stop()
+
     return app
 
 

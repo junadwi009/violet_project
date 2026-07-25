@@ -10,7 +10,8 @@ class ReindexRequest(BaseModel):
 
 
 def create_knowledge_router(
-    indexer, store, knowledge_dir, model, sources=None, gdrive_source=None, settings=None
+    indexer, store, knowledge_dir, model, sources=None, gdrive_source=None,
+    settings=None, scheduler=None,
 ):
     # Defaults keep the Phase A 4-arg call sites (and their tests) working unchanged.
     router = APIRouter()
@@ -26,6 +27,7 @@ def create_knowledge_router(
             "chunk_count": stats["chunk_count"],
             "docs": store.list_docs() if store else [],
             "sources": [s.status() for s in (sources or [])],
+            "auto_sync": scheduler.status() if scheduler else {"enabled": False},
         }
 
     @router.post("/api/knowledge/reindex")
