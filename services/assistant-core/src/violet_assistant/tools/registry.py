@@ -46,3 +46,31 @@ def flags_satisfied(tool, settings: Settings) -> bool:
     return all(
         getattr(settings, flag, False) for flag in getattr(tool, "required_flags", ())
     )
+
+
+def create_tool_registry(
+    settings: Settings,
+    *,
+    retriever=None,
+    skill_registry=None,
+    skill_engine=None,
+    web_provider=None,
+    web_model: str = "",
+) -> ToolRegistry:
+    """Build the tools whose dependencies exist AND whose flags are satisfied.
+
+    A tool that fails either check is never constructed, so it never reaches
+    `specs()` — the model cannot request what it cannot see.
+    """
+    from violet_assistant.tools.builtin.artifact import CreateArtifactTool
+    from violet_assistant.tools.builtin.knowledge import KnowledgeSearchTool
+    from violet_assistant.tools.builtin.web import FetchUrlTool, WebSearchTool
+
+    candidates = [FetchUrlTool()]
+    if retriever is not None:
+        candidates.append(KnowledgeSearchTool(retriever))
+    if skill_registry is not None and skill_engine is not None:
+        candidates.append(CreateArtifactTool(skill_registry, skill_engine))
+    if web_provider is not None and web_model:
+        candidates.append(WebSearchTool(web_provider, web_model))
+    return ToolRegistry([t for t in candidates if flags_satisfied(t, settings)])
