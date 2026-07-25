@@ -95,15 +95,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             chunk_size=active_settings.knowledge_chunk_size,
             chunk_overlap=active_settings.knowledge_chunk_overlap,
         )
-        if active_settings.knowledge_scan_on_startup:
-            import asyncio
-
-            try:
-                asyncio.new_event_loop().run_until_complete(
-                    knowledge_indexer.reindex()
-                )
-            except Exception:  # noqa: BLE001 — startup scan is best-effort
-                pass
+        # NOTE: the initial scan runs in the FastAPI startup event (below), not here.
+        # create_app() is sync, so spinning a private event loop to await the
+        # coroutine fails under uvicorn and silently skips the scan.
         from violet_assistant.knowledge.auto_sync import AutoSyncScheduler
 
         knowledge_scheduler = AutoSyncScheduler(
@@ -247,6 +241,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.on_event("startup")
     async def _start_autosync() -> None:  # pragma: no cover — server lifecycle
+        if knowledge_indexer is not None and active_settings.knowledge_scan_on_startup:
+            try:
+                await knowledge_indexer.reindex()
+            except Exception:  # noqa: BLE001 — startup scan is best-effort
+                pass
         if knowledge_scheduler is not None:
             await knowledge_scheduler.start()
 

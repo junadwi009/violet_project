@@ -15,3 +15,6 @@ violet.db
 
 # File-based memory store (personal data — manage/sync it yourself, don't commit)
 /memory/
+
+# Knowledge base source documents (personal/internal data — manage/sync it yourself, don't commit)
+/knowledge/

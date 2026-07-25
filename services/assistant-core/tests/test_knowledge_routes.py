@@ -117,3 +117,41 @@ async def test_status_includes_auto_sync(tmp_path):
     body = await _endpoint(router, "GET")()
     assert body["auto_sync"]["enabled"] is False
     assert body["auto_sync"]["interval"] == 30
+
+
+@pytest.mark.asyncio
+async def test_create_app_does_not_leave_unawaited_reindex(tmp_path, monkeypatch):
+    """Regression: the startup scan must not be run from sync create_app().
+
+    This test is async on purpose: it reproduces uvicorn's condition (an event
+    loop already running in this thread). Under that condition the old code —
+    `asyncio.new_event_loop().run_until_complete(indexer.reindex())` — raises
+    "Cannot run the event loop while another loop is running", gets swallowed by
+    a bare `except`, and silently skips the scan, leaving the coroutine
+    un-awaited. Called from a sync test it would wrongly pass.
+    """
+    import gc
+    import warnings
+    from pathlib import Path
+
+    from violet_assistant.config import load_settings
+    from violet_assistant.main import create_app
+
+    # repo_root must be the real repo (migration SQL lives there); every data
+    # path is redirected into tmp so the test touches nothing real.
+    repo_root = Path(__file__).resolve().parents[3]
+    monkeypatch.setenv("RAG_PROVIDER", "vector")
+    monkeypatch.setenv("KNOWLEDGE_DIR", str(tmp_path / "knowledge"))
+    monkeypatch.setenv("KNOWLEDGE_DB", str(tmp_path / "knowledge.db"))
+    monkeypatch.setenv("KNOWLEDGE_SCAN_ON_STARTUP", "true")
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path / "memory"))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'violet.db'}")
+    (tmp_path / "knowledge").mkdir()
+
+    settings = load_settings(repo_root)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        create_app(settings)
+        gc.collect()  # the "never awaited" warning fires when the coro is collected
+    never_awaited = [w for w in caught if "never awaited" in str(w.message)]
+    assert never_awaited == [], f"create_app left an un-awaited coroutine: {never_awaited}"
