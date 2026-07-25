@@ -82,3 +82,12 @@ async def test_settings_router_rejects_bad_value(tmp_path, settings):
     with pytest.raises(HTTPException) as exc_info:
         await _endpoint(router, "PATCH")(SettingsPatch(temperature=9))
     assert exc_info.value.status_code == 422
+
+
+def test_ui_mode_default_and_validation(tmp_path, settings):
+    store = PreferencesStore(tmp_path / "preferences.json")
+    assert store.effective(settings)["ui_mode"] == "user"
+    store.patch({"ui_mode": "developer"})
+    assert store.effective(settings)["ui_mode"] == "developer"
+    with pytest.raises(ValueError):
+        store.patch({"ui_mode": "root"})
