@@ -183,6 +183,14 @@ export type KnowledgeDoc = {
   indexed_at: string;
 };
 
+export type SourceStatus = {
+  name: string;
+  connected: boolean;
+  detail: string;
+  folder?: string;
+  folder_id?: string;
+};
+
 export type KnowledgeInfo = {
   dir: string;
   provider: string;
@@ -190,10 +198,23 @@ export type KnowledgeInfo = {
   doc_count: number;
   chunk_count: number;
   docs: KnowledgeDoc[];
+  sources: SourceStatus[];
 };
 
 export async function fetchKnowledge(): Promise<KnowledgeInfo> {
   return requestJson<KnowledgeInfo>("/api/knowledge");
+}
+
+export async function connectGDrive(): Promise<SourceStatus> {
+  return requestJson<SourceStatus>("/api/knowledge/gdrive/connect", {
+    method: "POST",
+  });
+}
+
+export async function disconnectGDrive(): Promise<SourceStatus> {
+  return requestJson<SourceStatus>("/api/knowledge/gdrive/disconnect", {
+    method: "POST",
+  });
 }
 
 export type ReindexReport = {
@@ -204,10 +225,13 @@ export type ReindexReport = {
   errors: { path: string; error: string }[];
 };
 
-export async function reindexKnowledge(full = false): Promise<ReindexReport> {
+export async function reindexKnowledge(
+  full = false,
+  source?: string,
+): Promise<ReindexReport> {
   return requestJson<ReindexReport>("/api/knowledge/reindex", {
     method: "POST",
-    body: JSON.stringify({ full }),
+    body: JSON.stringify({ full, source: source ?? null }),
   });
 }
 

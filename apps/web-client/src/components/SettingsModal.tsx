@@ -29,7 +29,9 @@ type SettingsModalProps = {
   onPatchSettings: (changes: Record<string, string | number | boolean>) => void;
   onOpenSkillLab: () => void;
   knowledge: KnowledgeInfo | null;
-  onReindex: (full: boolean) => void;
+  onReindex: (full: boolean, source?: string) => void;
+  onConnectGDrive: () => void;
+  onDisconnectGDrive: () => void;
   devMode: boolean;
 };
 
@@ -92,6 +94,8 @@ export function SettingsModal({
   onOpenSkillLab,
   knowledge,
   onReindex,
+  onConnectGDrive,
+  onDisconnectGDrive,
   devMode,
 }: SettingsModalProps) {
   if (!open) return null;
@@ -371,6 +375,43 @@ export function SettingsModal({
                   {knowledge.doc_count} docs · {knowledge.chunk_count} chunks ·{" "}
                   {knowledge.provider}
                 </div>
+                {knowledge.sources?.map((s) => (
+                  <div
+                    key={s.name}
+                    className="flex items-center gap-2 text-[11px] border-t border-navy-700/10 pt-2"
+                  >
+                    <span className="font-medium capitalize text-steel-dark">{s.name}</span>
+                    <span className={s.connected ? "text-emerald-600" : "text-amber-600"}>
+                      {s.connected ? "connected" : s.detail}
+                    </span>
+                    {s.name === "gdrive" && !s.connected && s.detail !== "not_configured" && (
+                      <button
+                        onClick={onConnectGDrive}
+                        className="ml-auto text-steel-highlight hover:underline"
+                      >
+                        Connect
+                      </button>
+                    )}
+                    {s.name === "gdrive" && s.connected && (
+                      <span className="ml-auto flex items-center gap-2">
+                        <button
+                          onClick={() => onReindex(false, "gdrive")}
+                          className="text-steel-highlight hover:underline"
+                        >
+                          Sync
+                        </button>
+                        {devMode && (
+                          <button
+                            onClick={onDisconnectGDrive}
+                            className="text-steel/60 hover:underline"
+                          >
+                            Disconnect
+                          </button>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                ))}
                 {!knowledge.enabled && (
                   <div className="text-[11px] text-amber-600">
                     Retrieval off — set RAG_PROVIDER=vector to enable.

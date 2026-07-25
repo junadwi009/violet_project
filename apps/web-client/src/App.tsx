@@ -14,7 +14,9 @@ import {
   SessionSummary,
   SkillInfo,
   approveMemoryCandidate,
+  connectGDrive,
   deleteMemory,
+  disconnectGDrive,
   fetchAgents,
   fetchKnowledge,
   fetchMemories,
@@ -465,10 +467,10 @@ export function App() {
     }
   }
 
-  async function handleReindex(full: boolean) {
+  async function handleReindex(full: boolean, source?: string) {
     setStatus({ tone: "busy", text: full ? "Rebuilding knowledge" : "Reindexing knowledge" });
     try {
-      const report = await reindexKnowledge(full);
+      const report = await reindexKnowledge(full, source);
       await refreshKnowledge();
       setStatus({
         tone: "ok",
@@ -478,6 +480,33 @@ export function App() {
       setStatus({
         tone: "error",
         text: error instanceof Error ? error.message : "Reindex failed",
+      });
+    }
+  }
+
+  async function handleConnectGDrive() {
+    setStatus({ tone: "busy", text: "Opening Google consent…" });
+    try {
+      await connectGDrive();
+      await refreshKnowledge();
+      setStatus({ tone: "ok", text: "Google Drive connected" });
+    } catch (error) {
+      setStatus({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Connect failed",
+      });
+    }
+  }
+
+  async function handleDisconnectGDrive() {
+    try {
+      await disconnectGDrive();
+      await refreshKnowledge();
+      setStatus({ tone: "ok", text: "Google Drive disconnected" });
+    } catch (error) {
+      setStatus({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Disconnect failed",
       });
     }
   }
@@ -645,6 +674,8 @@ export function App() {
         }}
         knowledge={knowledge}
         onReindex={handleReindex}
+        onConnectGDrive={handleConnectGDrive}
+        onDisconnectGDrive={handleDisconnectGDrive}
         devMode={devMode}
       />
 
