@@ -602,6 +602,13 @@ export function App() {
         agents={agents}
         selectedAgent={selectedAgent}
         onSelectAgent={setSelectedAgent}
+        skills={skills}
+        settings={appSettings}
+        onPatchSettings={handlePatchSettings}
+        onOpenSkillLab={() => {
+          setSettingsOpen(false);
+          setSkillLabOpen(true);
+        }}
       />
 
       <HelpModal
