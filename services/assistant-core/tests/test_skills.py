@@ -136,3 +136,62 @@ def test_registry_get_returns_skill_by_id(tmp_path) -> None:
     reg = SkillRegistry(d)
     assert reg.get("chart").name == "Chart"
     assert reg.get("nope") is None
+
+
+def test_display_defaults_by_kind() -> None:
+    """Without an explicit hint: charts and files render inline, HTML opens in canvas."""
+    def _skill(kind: str) -> Skill:
+        return Skill(id="x", name="X", kind=kind, triggers=["x"], prompt="p")
+
+    assert _skill("chartjs").resolved_display == "inline"
+    assert _skill("docx").resolved_display == "inline"
+    assert _skill("pptx").resolved_display == "inline"
+    assert _skill("html").resolved_display == "canvas"
+
+
+def test_explicit_display_overrides_kind_default() -> None:
+    inline_html = Skill(
+        id="x", name="X", kind="html", triggers=["x"], prompt="p", display="inline"
+    )
+    canvas_chart = Skill(
+        id="y", name="Y", kind="chartjs", triggers=["y"], prompt="p", display="canvas"
+    )
+    assert inline_html.resolved_display == "inline"
+    assert canvas_chart.resolved_display == "canvas"
+
+
+def test_every_shipped_skill_declares_a_valid_display() -> None:
+    """Guard: the shipped skill configs must all opt into a known display mode."""
+    from pathlib import Path
+
+    from violet_assistant.skills.registry import SkillRegistry
+
+    configs = Path(__file__).resolve().parents[3] / "configs" / "skills"
+    skills = SkillRegistry(configs).list_skills()
+    assert len(skills) >= 12
+    for skill in skills:
+        assert skill.resolved_display in {"inline", "canvas"}, skill.id
+
+
+def test_engine_stamps_display_onto_artifacts() -> None:
+    """The generated artifact must carry the skill's display mode to the client."""
+    import asyncio
+
+    from violet_assistant.llm.base import LLMResponse
+    from violet_assistant.skills.generator import SkillEngine
+
+    class _Provider:
+        name = "fake"
+
+        async def chat(self, messages, options):
+            return LLMResponse(text='ok\n```chartjs\n{"type":"bar"}\n```')
+
+        async def health(self):  # pragma: no cover
+            raise NotImplementedError
+
+    skill = Skill(
+        id="chart", name="Chart", kind="chartjs", triggers=["chart"],
+        prompt="p", display="inline",
+    )
+    intro, artifacts = asyncio.run(SkillEngine(_Provider(), "m").generate(skill, "go"))
+    assert artifacts[0]["display"] == "inline"

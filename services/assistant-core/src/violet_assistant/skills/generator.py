@@ -21,6 +21,7 @@ def _new_artifact(kind: str, **fields) -> dict:
         "id": str(uuid4()),
         "kind": kind,
         "title": "",
+        "display": "canvas",  # overridden per-skill in SkillEngine.generate
         "spec": None,
         "html": None,
         "file_base64": None,
@@ -115,4 +116,5 @@ class SkillEngine:
             intro = f"Here is the {skill.name.lower()} you asked for."
         for artifact in artifacts:
             artifact["title"] = artifact["title"] or skill.name
+            artifact["display"] = skill.resolved_display
         return intro, artifacts

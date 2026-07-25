@@ -2,6 +2,8 @@ export type Artifact = {
   id: string;
   kind: "chartjs" | "html" | "docx" | "pptx";
   title: string;
+  /** "inline" renders in the chat flow; "canvas" opens in the side panel. */
+  display?: "inline" | "canvas";
   spec?: Record<string, unknown> | null;
   html?: string | null;
   file_base64?: string | null;

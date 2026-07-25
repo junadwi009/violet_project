@@ -5,6 +5,11 @@ import re
 from pydantic import BaseModel, Field
 
 
+# Artifacts that are small/static enough to sit in the chat flow default to "inline";
+# interactive HTML needs the room a canvas panel gives it.
+_DISPLAY_BY_KIND = {"chartjs": "inline", "docx": "inline", "pptx": "inline", "html": "canvas"}
+
+
 class Skill(BaseModel):
     id: str
     name: str
@@ -15,6 +20,15 @@ class Skill(BaseModel):
     # Higher priority wins when several skills match. File-output skills (docx/pptx) use 1 so an
     # explicit "word/docx/pptx" request beats a longer generic trigger like "report" on a dashboard.
     priority: int = 0
+    # "inline" renders the artifact in the chat flow; "canvas" opens it in the side panel.
+    # Empty falls back to the per-kind default above.
+    display: str = ""
+
+    @property
+    def resolved_display(self) -> str:
+        if self.display in {"inline", "canvas"}:
+            return self.display
+        return _DISPLAY_BY_KIND.get(self.kind, "canvas")
 
     def match_score(self, text: str) -> int:
         """Length of the longest trigger that matches ``text`` on word boundaries (0 if none).
