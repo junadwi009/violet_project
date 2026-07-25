@@ -31,6 +31,7 @@ import {
   patchSettings,
   reindexKnowledge,
   rejectMemoryCandidate,
+  resumeAgentRun,
   sendChat,
   updateMemory,
   updateMemoryCandidate,
@@ -108,6 +109,7 @@ export function App() {
   const [canvasOpen, setCanvasOpen] = useState(false);
   const [canvasArtifactId, setCanvasArtifactId] = useState<string | null>(null);
   const [knowledge, setKnowledge] = useState<KnowledgeInfo | null>(null);
+  const [decisionBusy, setDecisionBusy] = useState(false);
 
   const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer>>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -259,6 +261,9 @@ export function App() {
           content: response.text,
           artifacts: response.artifacts,
           citations: response.citations,
+          tool_trace: response.tool_trace,
+          tool_requests: response.tool_requests,
+          agent_run_id: response.agent_run_id,
         },
       ]);
 
@@ -511,6 +516,42 @@ export function App() {
     }
   }
 
+  async function handleToolDecision(
+    runId: string,
+    toolCallId: string,
+    approved: boolean,
+  ) {
+    setDecisionBusy(true);
+    setStatus({ tone: "busy", text: approved ? "Running tool" : "Skipping tool" });
+    try {
+      const result = await resumeAgentRun(runId, toolCallId, approved);
+      setMessages((current) => [
+        // clear the approval card on the message that raised it
+        ...current.map((m) =>
+          m.agent_run_id === runId ? { ...m, tool_requests: [] } : m,
+        ),
+        {
+          id: crypto.randomUUID(),
+          role: "assistant" as const,
+          content: result.text,
+          artifacts: result.artifacts,
+          citations: result.citations,
+          tool_trace: result.tool_trace,
+          tool_requests: result.tool_requests,
+          agent_run_id: result.agent_run_id,
+        },
+      ]);
+      setStatus({ tone: "ok", text: "Response received" });
+    } catch (error) {
+      setStatus({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Resume failed",
+      });
+    } finally {
+      setDecisionBusy(false);
+    }
+  }
+
   const devMode = appSettings?.values.ui_mode === "developer";
   const webSearchAvailable = Boolean(appSettings?.values.web_search_enabled);
   const canvasEnabled = appSettings?.values.canvas_enabled !== false;
@@ -590,6 +631,8 @@ export function App() {
               typing={status.tone === "busy" && status.text === "Thinking"}
               assistantName={assistantName}
               onOpenArtifact={canvasEnabled ? openArtifact : undefined}
+              onToolDecision={handleToolDecision}
+              decisionBusy={decisionBusy}
             />
           )}
         </div>

@@ -2,6 +2,8 @@ import { Fragment, ReactNode } from "react";
 import { Sparkles, Hourglass } from "lucide-react";
 import { ChatMessage } from "../lib/api";
 import { ArtifactView } from "./ArtifactView";
+import { ToolTrace } from "./ToolTrace";
+import { ToolApproval } from "./ToolApproval";
 
 /** Minimal, safe markdown: **bold** + line breaks, rendered as React nodes (no innerHTML). */
 function renderRich(text: string): ReactNode {
@@ -29,6 +31,8 @@ type ChatTimelineProps = {
   typing: boolean;
   assistantName: string;
   onOpenArtifact?: (id: string) => void;
+  onToolDecision?: (runId: string, toolCallId: string, approved: boolean) => void;
+  decisionBusy?: boolean;
 };
 
 export function ChatTimeline({
@@ -36,6 +40,8 @@ export function ChatTimeline({
   typing,
   assistantName,
   onOpenArtifact,
+  onToolDecision,
+  decisionBusy,
 }: ChatTimelineProps) {
   return (
     <div className="w-full lg:w-3/5 ml-0 mr-auto lg:ml-12 space-y-8 flex flex-col pb-12">
@@ -69,6 +75,20 @@ export function ChatTimeline({
                   onOpen={() => onOpenArtifact?.(artifact.id)}
                 />
               ))}
+              {message.tool_trace && message.tool_trace.length > 0 && (
+                <ToolTrace entries={message.tool_trace} />
+              )}
+              {message.tool_requests &&
+                message.tool_requests.length > 0 &&
+                message.agent_run_id && (
+                  <ToolApproval
+                    requests={message.tool_requests}
+                    busy={Boolean(decisionBusy)}
+                    onDecide={(toolCallId, approved) =>
+                      onToolDecision?.(message.agent_run_id!, toolCallId, approved)
+                    }
+                  />
+                )}
               {message.citations && message.citations.length > 0 && (
                 <ul className="mt-1 space-y-1">
                   {message.citations.map((url) => (

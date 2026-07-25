@@ -11,12 +11,30 @@ export type Artifact = {
   mime?: string | null;
 };
 
+export type ToolTraceEntry = {
+  tool: string;
+  args: string;
+  status: "ok" | "error" | "rejected" | "awaiting_approval";
+  summary: string;
+};
+
+export type ToolRequest = {
+  id: string;
+  tool: string;
+  arguments: Record<string, unknown>;
+  risk: "low" | "medium" | "high" | "critical";
+  description: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
   artifacts?: Artifact[];
   citations?: string[];
+  tool_trace?: ToolTraceEntry[];
+  tool_requests?: ToolRequest[];
+  agent_run_id?: string | null;
 };
 
 export type SkillInfo = {
@@ -54,11 +72,34 @@ export type ChatResponse = {
   text: string;
   emotion: string;
   memory_candidates: MemoryCandidate[];
-  tool_requests: unknown[];
+  tool_requests: ToolRequest[];
   artifacts: Artifact[];
   agent: string | null;
   citations: string[];
+  tool_trace?: ToolTraceEntry[];
+  agent_run_id?: string | null;
 };
+
+export type ResumeResult = {
+  agent_run_id: string;
+  status: string;
+  text: string;
+  tool_trace: ToolTraceEntry[];
+  tool_requests: ToolRequest[];
+  citations: string[];
+  artifacts: Artifact[];
+};
+
+export async function resumeAgentRun(
+  runId: string,
+  toolCallId: string,
+  approved: boolean,
+): Promise<ResumeResult> {
+  return requestJson<ResumeResult>(`/api/agent-runs/${runId}/resume`, {
+    method: "POST",
+    body: JSON.stringify({ tool_call_id: toolCallId, approved }),
+  });
+}
 
 export type AgentInfo = {
   id: string;
