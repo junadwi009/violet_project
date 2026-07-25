@@ -96,6 +96,10 @@ class Settings:
     gdrive_token_path: str = ""
     google_oauth_client_secrets: str = ""
     gdrive_export_doc: str = "text/markdown"
+    # Auto-sync (Phase B).
+    knowledge_auto_sync: bool = False
+    knowledge_sync_interval_seconds: int = 30
+    gdrive_sync_interval_seconds: int = 300
 
 
 def load_settings(repo_root: Path | None = None) -> Settings:
@@ -201,6 +205,13 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         ),
         google_oauth_client_secrets=os.getenv("GOOGLE_OAUTH_CLIENT_SECRETS", ""),
         gdrive_export_doc=os.getenv("GDRIVE_EXPORT_DOC", "text/markdown"),
+        knowledge_auto_sync=_env_bool("KNOWLEDGE_AUTO_SYNC", False),
+        knowledge_sync_interval_seconds=int(
+            os.getenv("KNOWLEDGE_SYNC_INTERVAL_SECONDS", "30")
+        ),
+        gdrive_sync_interval_seconds=int(
+            os.getenv("GDRIVE_SYNC_INTERVAL_SECONDS", "300")
+        ),
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),
