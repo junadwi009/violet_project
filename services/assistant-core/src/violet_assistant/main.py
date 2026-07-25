@@ -283,4 +283,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
-app = create_app()
+def __getattr__(name: str):
+    """Build `app` lazily on first access (PEP 562).
+
+    `uvicorn violet_assistant.main:app` does `getattr(module, "app")`, so the
+    documented run command is unchanged. But merely *importing* this module —
+    which tests do to reach `create_app` — no longer runs the factory, and so no
+    longer opens/migrates the developer's real database from `.env`.
+    """
+    if name == "app":
+        global app
+        app = create_app()
+        return app
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
