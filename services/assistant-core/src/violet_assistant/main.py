@@ -22,6 +22,7 @@ from violet_assistant.routes.memory import create_memory_router
 from violet_assistant.routes.personality import create_personality_router
 from violet_assistant.routes.providers import create_providers_router
 from violet_assistant.routes.sessions import create_sessions_router
+from violet_assistant.routes.fetch import create_fetch_router
 from violet_assistant.routes.settings import create_settings_router
 from violet_assistant.routes.skills import create_skills_router
 from violet_assistant.routes.upload import create_upload_router
@@ -157,6 +158,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(create_memory_router(store, memory_store))
     app.include_router(create_sessions_router(store))
     app.include_router(create_settings_router(preferences, active_settings))
+    app.include_router(create_fetch_router())
     app.include_router(create_skills_router(skill_registry, skill_engine is not None))
     app.include_router(create_agents_router(agent_registry, agent_runner is not None))
     app.include_router(create_upload_router(vision, active_settings.max_upload_mb))
