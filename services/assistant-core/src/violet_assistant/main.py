@@ -22,6 +22,7 @@ from violet_assistant.routes.memory import create_memory_router
 from violet_assistant.routes.personality import create_personality_router
 from violet_assistant.routes.providers import create_providers_router
 from violet_assistant.routes.sessions import create_sessions_router
+from violet_assistant.routes.agent_runs import create_agent_runs_router
 from violet_assistant.routes.fetch import create_fetch_router
 from violet_assistant.routes.knowledge import create_knowledge_router
 from violet_assistant.routes.settings import create_settings_router
@@ -172,6 +173,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     orchestrator.agent_registry = agent_registry
     orchestrator.agent_runner = agent_runner
 
+    # Agent tool loop (off unless AGENT_TOOLS_ENABLED).
+    agent_loop = None
+    if active_settings.agent_tools_enabled and agent_runner is not None:
+        from violet_assistant.agents.loop import AgentLoop
+        from violet_assistant.tools.registry import create_tool_registry
+
+        tool_registry = create_tool_registry(
+            active_settings,
+            retriever=retriever,
+            skill_registry=skill_registry,
+            skill_engine=skill_engine,
+            web_provider=web_provider,
+            web_model=active_settings.web_search_model,
+        )
+        agent_loop = AgentLoop(
+            provider_factory=lambda url: agent_runner._make(  # noqa: SLF001
+                url or active_settings.agent_base_url
+            ),
+            registry=tool_registry,
+            settings=active_settings,
+            audit=store.add_tool_audit_log,
+        )
+    orchestrator.agent_loop = agent_loop
+
     vision = None
     if active_settings.vision_api_key:
         vision = VisionOCR(
@@ -219,6 +244,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.include_router(create_skills_router(skill_registry, skill_engine is not None))
     app.include_router(create_agents_router(agent_registry, agent_runner is not None))
+    app.include_router(create_agent_runs_router(store, agent_loop, agent_registry))
     app.include_router(create_upload_router(vision, active_settings.max_upload_mb))
 
     admin_provider = None

@@ -56,4 +56,6 @@ class ChatResponse(BaseModel):
     artifacts: list[Artifact] = Field(default_factory=list)
     agent: str | None = None
     citations: list[str] = Field(default_factory=list)
+    tool_trace: list[dict[str, Any]] = Field(default_factory=list)
+    agent_run_id: str | None = None
 
