@@ -218,3 +218,45 @@ def test_web_search_routes_through_web_provider(tmp_path) -> None:
 
     assert response.text == "web says hi"
     assert response.citations == ["https://src"]
+
+
+class _StubProvider:
+    name = "stub"
+
+    async def chat(self, messages, options):
+        from violet_assistant.llm.base import LLMResponse
+
+        return LLMResponse(text="answer", emotion="focused")
+
+    async def health(self):  # pragma: no cover
+        raise NotImplementedError
+
+
+class _FakeRetriever:
+    name = "vector"
+
+    async def retrieve(self, query, k=4):
+        from violet_assistant.rag.base import Chunk
+
+        return [Chunk(text="context", source="notes.md", score=0.9)]
+
+
+def test_retrieved_sources_become_citations(tmp_path) -> None:
+    personality_dir = _write_personality(tmp_path)
+    settings = _settings(tmp_path, personality_dir)
+    orchestrator = ChatOrchestrator(
+        settings=settings,
+        provider=_StubProvider(),
+        personality_loader=PersonalityLoader(personality_dir),
+        store=_store(settings),
+        retriever=_FakeRetriever(),
+    )
+
+    response = asyncio.run(
+        orchestrator.chat(
+            ChatRequest(content="tell me about the notes", personality_id="violet.default")
+        )
+    )
+
+    assert response.text == "answer"
+    assert response.citations == ["notes.md"]

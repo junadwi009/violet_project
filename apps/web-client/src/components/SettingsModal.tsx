@@ -4,6 +4,7 @@ import { X, SlidersHorizontal, Layers, Bot, Sparkles, Globe } from "lucide-react
 import {
   AgentInfo,
   AppSettings,
+  KnowledgeInfo,
   PersonalityProfile,
   ProviderInfo,
   RouterInfo,
@@ -27,6 +28,9 @@ type SettingsModalProps = {
   settings: AppSettings | null;
   onPatchSettings: (changes: Record<string, string | number | boolean>) => void;
   onOpenSkillLab: () => void;
+  knowledge: KnowledgeInfo | null;
+  onReindex: (full: boolean) => void;
+  devMode: boolean;
 };
 
 function personaLabel(profile: PersonalityProfile): string {
@@ -86,6 +90,9 @@ export function SettingsModal({
   settings,
   onPatchSettings,
   onOpenSkillLab,
+  knowledge,
+  onReindex,
+  devMode,
 }: SettingsModalProps) {
   if (!open) return null;
   const values = settings?.values;
@@ -116,6 +123,28 @@ export function SettingsModal({
         </h3>
 
         <div className="space-y-6">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-steel uppercase tracking-wider">
+              Mode
+            </span>
+            <div className="ml-auto inline-flex rounded-full bg-steel-ice border border-navy-700/20 p-0.5">
+              {(["user", "developer"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => onPatchSettings({ ui_mode: mode })}
+                  className={`px-3 py-1 rounded-full text-xs font-medium capitalize transition ${
+                    (settings?.values.ui_mode ?? "user") === mode
+                      ? "bg-steel-dark text-white"
+                      : "text-steel"
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {devMode && (
           <div>
             <label className="block text-xs font-semibold text-steel uppercase tracking-wider mb-2">
               AI engine
@@ -142,7 +171,9 @@ export function SettingsModal({
             </div>
           </div>
 
-          {router && router.mode === "cascade" && (
+          )}
+
+          {devMode && router && router.mode === "cascade" && (
             <div>
               <label className="block text-xs font-semibold text-steel uppercase tracking-wider mb-2">
                 Routing · cascade
@@ -190,7 +221,7 @@ export function SettingsModal({
             </div>
           </div>
 
-          {agents.length > 0 && (
+          {devMode && agents.length > 0 && (
             <div>
               <label className="flex items-center gap-1.5 text-xs font-semibold text-steel uppercase tracking-wider mb-2">
                 <Bot size={13} className="text-steel-highlight" />
@@ -239,23 +270,25 @@ export function SettingsModal({
                 Behavior
               </label>
               <div className="space-y-3 p-3 bg-steel-ice rounded-xl border border-navy-700/20">
-                <div>
-                  <div className="flex items-center justify-between text-xs text-steel-dark mb-1">
-                    <span className="font-medium">Temperature</span>
-                    <span className="font-mono text-steel">{temperature.toFixed(1)}</span>
+                {devMode && (
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-steel-dark mb-1">
+                      <span className="font-medium">Temperature</span>
+                      <span className="font-mono text-steel">{temperature.toFixed(1)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={2}
+                      step={0.1}
+                      value={temperature}
+                      onChange={(e) =>
+                        onPatchSettings({ temperature: Number(e.target.value) })
+                      }
+                      className="w-full accent-steel-highlight"
+                    />
                   </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={2}
-                    step={0.1}
-                    value={temperature}
-                    onChange={(e) =>
-                      onPatchSettings({ temperature: Number(e.target.value) })
-                    }
-                    className="w-full accent-steel-highlight"
-                  />
-                </div>
+                )}
 
                 <ToggleRow
                   icon={<Globe size={13} className="text-steel-highlight" />}
@@ -265,7 +298,7 @@ export function SettingsModal({
                     onPatchSettings({ web_search_enabled: !webSearchEnabled })
                   }
                 />
-                {webSearchEnabled && (
+                {devMode && webSearchEnabled && (
                   <input
                     value={String(values?.web_search_model ?? "")}
                     onChange={(e) =>
@@ -315,14 +348,70 @@ export function SettingsModal({
                 </div>
               ))}
             </div>
-            <button
-              onClick={onOpenSkillLab}
-              className="mt-2 w-full text-xs font-medium text-steel-highlight bg-steel-highlight/10 hover:bg-steel-highlight/15 border border-steel-highlight/30 rounded-lg py-2 transition"
-            >
-              Open Skill Lab
-            </button>
+            {devMode && (
+              <button
+                onClick={onOpenSkillLab}
+                className="mt-2 w-full text-xs font-medium text-steel-highlight bg-steel-highlight/10 hover:bg-steel-highlight/15 border border-steel-highlight/30 rounded-lg py-2 transition"
+              >
+                Open Skill Lab
+              </button>
+            )}
           </div>
 
+          {knowledge && (
+            <div>
+              <label className="block text-xs font-semibold text-steel uppercase tracking-wider mb-2">
+                Knowledge base
+              </label>
+              <div className="p-3 bg-steel-ice rounded-xl border border-navy-700/20 space-y-2">
+                <div className="text-[11px] text-steel-dark font-mono truncate">
+                  {knowledge.dir}
+                </div>
+                <div className="text-[11px] text-steel">
+                  {knowledge.doc_count} docs · {knowledge.chunk_count} chunks ·{" "}
+                  {knowledge.provider}
+                </div>
+                {!knowledge.enabled && (
+                  <div className="text-[11px] text-amber-600">
+                    Retrieval off — set RAG_PROVIDER=vector to enable.
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onReindex(false)}
+                    disabled={!knowledge.enabled}
+                    className="flex-1 text-xs font-medium text-steel-highlight bg-steel-highlight/10 hover:bg-steel-highlight/15 border border-steel-highlight/30 rounded-lg py-2 transition disabled:opacity-40"
+                  >
+                    Reindex
+                  </button>
+                  {devMode && (
+                    <button
+                      onClick={() => onReindex(true)}
+                      disabled={!knowledge.enabled}
+                      className="flex-1 text-xs font-medium text-steel bg-white border border-navy-700/20 rounded-lg py-2 transition disabled:opacity-40"
+                    >
+                      Full rebuild
+                    </button>
+                  )}
+                </div>
+                {devMode && knowledge.docs.length > 0 && (
+                  <ul className="max-h-28 overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
+                    {knowledge.docs.map((d) => (
+                      <li
+                        key={d.path}
+                        className="text-[11px] text-steel-dark flex justify-between gap-2"
+                      >
+                        <span className="truncate">{d.path}</span>
+                        <span className="text-steel/60 shrink-0">{d.chunk_count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
+          {devMode && (
           <div>
             <label className="block text-xs font-semibold text-steel uppercase tracking-wider mb-2">
               Palette
@@ -339,6 +428,7 @@ export function SettingsModal({
               </span>
             </div>
           </div>
+          )}
         </div>
 
         <button

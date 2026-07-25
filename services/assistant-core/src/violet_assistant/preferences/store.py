@@ -36,6 +36,7 @@ EDITABLE_KEYS: dict[str, Callable[[Any], bool]] = {
     "canvas_enabled": _is_bool,
     "default_personality": _is_str,
     "default_provider": _is_str,
+    "ui_mode": lambda v: v in {"user", "developer"},
 }
 
 
@@ -50,6 +51,7 @@ def _defaults(settings: Settings) -> dict[str, Any]:
         "canvas_enabled": True,
         "default_personality": "violet.default",
         "default_provider": settings.llm_provider,
+        "ui_mode": "user",
     }
 
 

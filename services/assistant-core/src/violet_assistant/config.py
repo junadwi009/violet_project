@@ -79,6 +79,16 @@ class Settings:
     web_search_model: str = "deepseek/deepseek-chat-v3.1"
     web_search_api_key: str | None = None
     default_temperature: float = 0.2
+    # Knowledge base / RAG (Phase A).
+    knowledge_dir: Path | None = None
+    knowledge_db: Path | None = None
+    embed_provider: str = "mock"
+    embed_base_url: str = "http://localhost:11434/v1"
+    embed_model: str = "nomic-embed-text"
+    embed_api_key: str | None = None
+    knowledge_scan_on_startup: bool = True
+    knowledge_chunk_size: int = 1000
+    knowledge_chunk_overlap: int = 150
 
 
 def load_settings(repo_root: Path | None = None) -> Settings:
@@ -165,6 +175,17 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         or os.getenv("OPENROUTER_API_KEY")
         or None,
         default_temperature=float(os.getenv("DEFAULT_TEMPERATURE", "0.2")),
+        knowledge_dir=Path(os.getenv("KNOWLEDGE_DIR", str(root / "knowledge"))),
+        knowledge_db=Path(
+            os.getenv("KNOWLEDGE_DB", str(root / "data" / "knowledge.db"))
+        ),
+        embed_provider=os.getenv("EMBED_PROVIDER", "mock").strip().lower(),
+        embed_base_url=os.getenv("EMBED_BASE_URL", "http://localhost:11434/v1"),
+        embed_model=os.getenv("EMBED_MODEL", "nomic-embed-text"),
+        embed_api_key=os.getenv("EMBED_API_KEY") or None,
+        knowledge_scan_on_startup=_env_bool("KNOWLEDGE_SCAN_ON_STARTUP", True),
+        knowledge_chunk_size=int(os.getenv("KNOWLEDGE_CHUNK_SIZE", "1000")),
+        knowledge_chunk_overlap=int(os.getenv("KNOWLEDGE_CHUNK_OVERLAP", "150")),
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),

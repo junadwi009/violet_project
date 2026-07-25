@@ -23,7 +23,11 @@ from violet_assistant.routes.personality import create_personality_router
 from violet_assistant.routes.providers import create_providers_router
 from violet_assistant.routes.sessions import create_sessions_router
 from violet_assistant.routes.fetch import create_fetch_router
+from violet_assistant.routes.knowledge import create_knowledge_router
 from violet_assistant.routes.settings import create_settings_router
+from violet_assistant.knowledge.indexer import KnowledgeIndexer
+from violet_assistant.vector.embeddings.factory import create_embedder
+from violet_assistant.vector.store.sqlite_vector_store import SqliteVectorStore
 from violet_assistant.routes.skills import create_skills_router
 from violet_assistant.routes.upload import create_upload_router
 from violet_assistant.preferences.store import PreferencesStore
@@ -57,6 +61,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     provider = create_llm_provider(active_settings)
     retriever = create_retriever(active_settings)
     provider_registry = build_provider_registry(active_settings)
+
+    # Knowledge base (active when RAG_PROVIDER=vector).
+    knowledge_indexer = None
+    knowledge_store = None
+    knowledge_model = "none"
+    if active_settings.rag_provider.strip().lower() == "vector":
+        knowledge_store = SqliteVectorStore(active_settings.knowledge_db)
+        knowledge_store.initialize()
+        knowledge_embedder = create_embedder(active_settings)
+        knowledge_model = knowledge_embedder.name
+        knowledge_indexer = KnowledgeIndexer(
+            embedder=knowledge_embedder,
+            store=knowledge_store,
+            knowledge_dir=active_settings.knowledge_dir,
+            chunk_size=active_settings.knowledge_chunk_size,
+            chunk_overlap=active_settings.knowledge_chunk_overlap,
+        )
+        if active_settings.knowledge_scan_on_startup:
+            import asyncio
+
+            try:
+                asyncio.new_event_loop().run_until_complete(
+                    knowledge_indexer.reindex()
+                )
+            except Exception:  # noqa: BLE001 — startup scan is best-effort
+                pass
 
     cascade = None
     if active_settings.llm_router == "cascade":
@@ -159,6 +189,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(create_sessions_router(store))
     app.include_router(create_settings_router(preferences, active_settings))
     app.include_router(create_fetch_router())
+    app.include_router(
+        create_knowledge_router(
+            knowledge_indexer,
+            knowledge_store,
+            str(active_settings.knowledge_dir),
+            knowledge_model,
+        )
+    )
     app.include_router(create_skills_router(skill_registry, skill_engine is not None))
     app.include_router(create_agents_router(agent_registry, agent_runner is not None))
     app.include_router(create_upload_router(vision, active_settings.max_upload_mb))
