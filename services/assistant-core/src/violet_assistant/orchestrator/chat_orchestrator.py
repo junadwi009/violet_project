@@ -100,6 +100,11 @@ class ChatOrchestrator:
         )
         artifacts: list[Artifact] = []
         citations: list[str] = []
+        # Surface retrieved knowledge-base sources as citations. The web-search
+        # branch reassigns `citations`, so web mode shows only web sources.
+        for chunk in retrieved:
+            if chunk.source and chunk.source != "unknown" and chunk.source not in citations:
+                citations.append(chunk.source)
         agent_used: str | None = None
         is_mock = request.provider == "mock"
 
