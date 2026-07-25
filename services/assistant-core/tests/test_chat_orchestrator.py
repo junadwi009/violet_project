@@ -334,3 +334,73 @@ def test_non_skill_answer_keeps_retrieved_citations(tmp_path) -> None:
         )
     )
     assert response.citations == ["notes.md"]
+
+
+class _StubLoop:
+    """Returns a paused outcome so we can assert the orchestrator persists + surfaces it."""
+
+    def __init__(self, status="awaiting_approval"):
+        self.status = status
+
+    async def run(self, agent, history):
+        from violet_assistant.agents.loop import LoopOutcome
+
+        return LoopOutcome(
+            status=self.status,
+            text="need approval",
+            trace=[{"tool": "fetch_url", "args": "url=https://x",
+                    "status": "awaiting_approval", "summary": "needs your approval"}],
+            citations=[],
+            artifacts=[],
+            pending=[{"id": "c1", "tool": "fetch_url", "arguments": {"url": "https://x"},
+                      "risk": "medium", "description": "fetch"}],
+            messages=[],
+            iterations=1,
+        )
+
+
+class _OneAgentRegistry:
+    def __init__(self, agent):
+        self._agent = agent
+
+    def get(self, agent_id):
+        return self._agent if agent_id == self._agent.id else None
+
+    def detect(self, text):
+        return None
+
+    def list_agents(self):
+        return [self._agent]
+
+
+def test_agent_loop_pause_surfaces_tool_requests_and_run_id(tmp_path) -> None:
+    from dataclasses import replace
+
+    from violet_assistant.agents.schema import Agent
+
+    personality_dir = _write_personality(tmp_path)
+    settings = replace(_settings(tmp_path, personality_dir), agent_tools_enabled=True)
+    store = _store(settings)
+    agent = Agent(id="researcher", name="Researcher", model="m", system_prompt="sys")
+
+    orchestrator = ChatOrchestrator(
+        settings=settings,
+        provider=_StubProvider(),
+        personality_loader=PersonalityLoader(personality_dir),
+        store=store,
+        agent_registry=_OneAgentRegistry(agent),
+        agent_runner=object(),   # present but unused: the loop takes precedence
+    )
+    orchestrator.agent_loop = _StubLoop()
+
+    response = asyncio.run(
+        orchestrator.chat(
+            ChatRequest(content="look this up", personality_id="violet.default",
+                        agent="researcher")
+        )
+    )
+
+    assert response.agent_run_id is not None
+    assert response.tool_requests[0]["tool"] == "fetch_url"
+    assert response.tool_trace[0]["status"] == "awaiting_approval"
+    assert store.get_agent_run(response.agent_run_id)["status"] == "awaiting_approval"

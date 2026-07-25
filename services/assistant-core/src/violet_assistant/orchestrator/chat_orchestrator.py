@@ -37,6 +37,7 @@ class ChatOrchestrator:
         agent_runner: AgentRunner | None = None,
         preferences: "PreferencesStore | None" = None,
         web_provider: LLMProvider | None = None,
+        agent_loop=None,
     ) -> None:
         self.settings = settings
         self.provider = provider
@@ -51,6 +52,34 @@ class ChatOrchestrator:
         self.agent_runner = agent_runner
         self.preferences = preferences
         self.web_provider = web_provider
+        self.agent_loop = agent_loop
+
+    async def _run_agent_loop(self, agent, messages, session_id: str, state: dict) -> str:
+        """Run the tool loop, folding its output into the response state.
+
+        `state["citations"]` / `state["artifacts"]` are the caller's live lists and
+        are mutated in place.
+        """
+        outcome = await self.agent_loop.run(agent, messages)
+        state["trace"] = outcome.trace
+        state["artifacts"].extend(
+            Artifact.model_validate(item) for item in outcome.artifacts
+        )
+        for citation in outcome.citations:
+            if citation not in state["citations"]:
+                state["citations"].append(citation)
+        if outcome.status == "awaiting_approval":
+            state["run_id"] = self.store.create_agent_run(
+                session_id=session_id,
+                agent_id=agent.id,
+                messages=[message.__dict__ for message in outcome.messages],
+                iterations=outcome.iterations,
+                status="awaiting_approval",
+                pending=outcome.pending,
+            )
+            state["tool_requests"] = outcome.pending
+            return outcome.text or "I need your approval before continuing."
+        return outcome.text
 
     def _select_provider(self, requested: str | None) -> LLMProvider:
         if requested and requested in self.provider_registry:
@@ -106,7 +135,13 @@ class ChatOrchestrator:
             if chunk.source and chunk.source != "unknown" and chunk.source not in citations:
                 citations.append(chunk.source)
         agent_used: str | None = None
+        tool_trace: list[dict] = []
+        tool_requests: list[dict] = []
+        agent_run_id: str | None = None
         is_mock = request.provider == "mock"
+        use_agent_loop = (
+            self.agent_loop is not None and self.settings.agent_tools_enabled
+        )
 
         explicit_agent = (
             self.agent_registry.get(request.agent)
@@ -130,6 +165,14 @@ class ChatOrchestrator:
             llm_response = await self._select_provider(request.provider).chat(
                 messages, base_options
             )
+        elif explicit_agent is not None and use_agent_loop:
+            state = {"citations": citations, "artifacts": artifacts}
+            text = await self._run_agent_loop(explicit_agent, messages, session_id, state)
+            llm_response = LLMResponse(text=text, emotion="focused")
+            tool_trace = state.get("trace", [])
+            tool_requests = state.get("tool_requests", [])
+            agent_run_id = state.get("run_id")
+            agent_used = explicit_agent.id
         elif explicit_agent is not None and self.agent_runner is not None:
             llm_response = await self.agent_runner.run(explicit_agent, messages)
             agent_used = explicit_agent.id
@@ -159,6 +202,18 @@ class ChatOrchestrator:
             citations = []
         elif (
             self.agent_registry is not None
+            and use_agent_loop
+            and (looped_agent := self.agent_registry.detect(request.content)) is not None
+        ):
+            state = {"citations": citations, "artifacts": artifacts}
+            text = await self._run_agent_loop(looped_agent, messages, session_id, state)
+            llm_response = LLMResponse(text=text, emotion="focused")
+            tool_trace = state.get("trace", [])
+            tool_requests = state.get("tool_requests", [])
+            agent_run_id = state.get("run_id")
+            agent_used = looped_agent.id
+        elif (
+            self.agent_registry is not None
             and self.agent_runner is not None
             and (detected_agent := self.agent_registry.detect(request.content)) is not None
         ):
@@ -186,9 +241,11 @@ class ChatOrchestrator:
             memory_candidates=[
                 candidate.to_response() for candidate in candidates
             ],
-            tool_requests=[],
+            tool_requests=tool_requests,
             artifacts=artifacts,
             agent=agent_used,
             citations=citations,
+            tool_trace=tool_trace,
+            agent_run_id=agent_run_id,
         )
 

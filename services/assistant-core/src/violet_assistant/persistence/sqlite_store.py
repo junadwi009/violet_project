@@ -30,9 +30,103 @@ class SQLiteStore:
 
     def initialize(self) -> None:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        schema = self.migration_path.read_text(encoding="utf-8")
+        # Apply every migration in the directory, sorted. Keeping the
+        # `migration_path` file parameter means existing call sites are unchanged.
+        directory = self.migration_path.parent
+        paths = sorted(directory.glob("*.sql")) or [self.migration_path]
         with self._connect() as connection:
-            connection.executescript(schema)
+            for path in paths:
+                connection.executescript(path.read_text(encoding="utf-8"))
+
+    def create_agent_run(
+        self,
+        session_id: str,
+        agent_id: str,
+        messages: list,
+        iterations: int,
+        status: str,
+        pending: list | None,
+    ) -> str:
+        run_id = str(uuid4())
+        with self._connect() as connection:
+            connection.execute(
+                """INSERT INTO agent_runs
+                     (id, session_id, agent_id, status, messages_json, pending_json, iterations)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    run_id,
+                    session_id,
+                    agent_id,
+                    status,
+                    json.dumps(messages),
+                    json.dumps(pending) if pending else None,
+                    iterations,
+                ),
+            )
+        return run_id
+
+    def get_agent_run(self, run_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM agent_runs WHERE id = ?", (run_id,)
+            ).fetchone()
+        return dict(row) if row else None
+
+    def update_agent_run(
+        self,
+        run_id: str,
+        *,
+        status: str,
+        messages: list,
+        iterations: int,
+        pending: list | None,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """UPDATE agent_runs
+                   SET status = ?, messages_json = ?, pending_json = ?,
+                       iterations = ?, updated_at = CURRENT_TIMESTAMP
+                   WHERE id = ?""",
+                (
+                    status,
+                    json.dumps(messages),
+                    json.dumps(pending) if pending else None,
+                    iterations,
+                    run_id,
+                ),
+            )
+
+    def add_tool_audit_log(
+        self,
+        tool_name: str,
+        requested_action: str,
+        risk_level: str,
+        approved: bool,
+        result_summary: str,
+    ) -> str:
+        log_id = str(uuid4())
+        with self._connect() as connection:
+            connection.execute(
+                """INSERT INTO tool_audit_logs
+                     (id, tool_name, requested_action, risk_level, approved, result_summary)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    log_id,
+                    tool_name,
+                    requested_action,
+                    risk_level,
+                    1 if approved else 0,
+                    result_summary,
+                ),
+            )
+        return log_id
+
+    def list_tool_audit_logs(self, limit: int = 50) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM tool_audit_logs ORDER BY rowid DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def ensure_session(self, session_id: str, title: str | None = None) -> None:
         with self._connect() as connection:

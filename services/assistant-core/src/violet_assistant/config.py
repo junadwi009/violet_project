@@ -100,6 +100,16 @@ class Settings:
     knowledge_auto_sync: bool = False
     knowledge_sync_interval_seconds: int = 30
     gdrive_sync_interval_seconds: int = 300
+    # Agent tool loop (Phase D). Off by default — enabling is a deliberate act.
+    agent_tools_enabled: bool = False
+    tool_confirm_threshold: str = "high"
+    require_confirmation_for_risky_tools: bool = True
+    allow_shell_tools: bool = False
+    allow_email_tools: bool = False
+    allow_file_delete: bool = False
+    max_tool_iterations: int = 5
+    tool_timeout_seconds: float = 120
+    max_tool_result_chars: int = 8000
 
 
 def load_settings(repo_root: Path | None = None) -> Settings:
@@ -212,6 +222,17 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         gdrive_sync_interval_seconds=int(
             os.getenv("GDRIVE_SYNC_INTERVAL_SECONDS", "300")
         ),
+        agent_tools_enabled=_env_bool("AGENT_TOOLS_ENABLED", False),
+        tool_confirm_threshold=os.getenv("TOOL_CONFIRM_THRESHOLD", "high").strip().lower(),
+        require_confirmation_for_risky_tools=_env_bool(
+            "REQUIRE_CONFIRMATION_FOR_RISKY_TOOLS", True
+        ),
+        allow_shell_tools=_env_bool("ALLOW_SHELL_TOOLS", False),
+        allow_email_tools=_env_bool("ALLOW_EMAIL_TOOLS", False),
+        allow_file_delete=_env_bool("ALLOW_FILE_DELETE", False),
+        max_tool_iterations=int(os.getenv("MAX_TOOL_ITERATIONS", "5")),
+        tool_timeout_seconds=float(os.getenv("TOOL_TIMEOUT_SECONDS", "120")),
+        max_tool_result_chars=int(os.getenv("MAX_TOOL_RESULT_CHARS", "8000")),
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),
