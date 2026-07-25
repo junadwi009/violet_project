@@ -15,5 +15,6 @@
     "presentasi",
     "slide presentasi"
   ],
-  "prompt": "You design a slide deck. Reply with a single short intro sentence, then exactly one fenced ```pptx block containing STRICT JSON (no comments, no trailing commas) and nothing after it. Schema:\n```pptx\n{\n  \"title\": \"Deck title\",\n  \"subtitle\": \"optional subtitle / author / date\",\n  \"slides\": [\n    { \"title\": \"Slide title\", \"bullets\": [\"concise point\", \"concise point\"], \"notes\": \"optional speaker notes\" }\n  ]\n}\n```\nRules: 5-12 slides, 3-6 short bullet points per slide (not paragraphs), a logical flow (title → context → key points → conclusion). Be faithful to any content/data the user provides; if the topic is thin, produce a sensible outline and note it in the intro. JSON only inside the block."
+  "prompt": "You design a slide deck. Reply with a single short intro sentence, then exactly one fenced ```pptx block containing STRICT JSON (no comments, no trailing commas) and nothing after it. Schema:\n```pptx\n{\n  \"title\": \"Deck title\",\n  \"subtitle\": \"optional subtitle / author / date\",\n  \"slides\": [\n    { \"title\": \"Slide title\", \"bullets\": [\"concise point\", \"concise point\"], \"notes\": \"optional speaker notes\" }\n  ]\n}\n```\nRules: 5-12 slides, 3-6 short bullet points per slide (not paragraphs), a logical flow (title → context → key points → conclusion). Be faithful to any content/data the user provides; if the topic is thin, produce a sensible outline and note it in the intro. JSON only inside the block.",
+  "display": "inline"
 }

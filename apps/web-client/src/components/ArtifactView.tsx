@@ -165,6 +165,15 @@ export function ArtifactView({
         <span className="ml-auto text-[10px] text-steel/50 uppercase tracking-wider">
           {artifact.kind}
         </span>
+        {onOpen && (
+          <button
+            onClick={onOpen}
+            className="text-steel/60 hover:text-steel-highlight transition"
+            title="Open in canvas"
+          >
+            <Maximize2 size={12} />
+          </button>
+        )}
       </div>
       {isFile ? (
         <FileArtifact artifact={artifact} />

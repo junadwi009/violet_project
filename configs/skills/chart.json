@@ -16,5 +16,6 @@
     "grafik",
     "diagram"
   ],
-  "prompt": "You produce ONE chart as a Chart.js v4 configuration. Read the user's data/request, choose the best chart type, and reply with: a single short intro sentence, then exactly one fenced block:\n```chartjs\n{ ...valid Chart.js config JSON: {type, data:{labels, datasets}, options} ... }\n```\nRules: the block must be strict JSON (no comments, no JS expressions, no functions). Use clear labels and a title in options.plugins.title. If the user gives no concrete data, invent a small, clearly-illustrative sample and say so in the intro. Output nothing after the block."
+  "prompt": "You produce ONE chart as a Chart.js v4 configuration. Read the user's data/request, choose the best chart type, and reply with: a single short intro sentence, then exactly one fenced block:\n```chartjs\n{ ...valid Chart.js config JSON: {type, data:{labels, datasets}, options} ... }\n```\nRules: the block must be strict JSON (no comments, no JS expressions, no functions). Use clear labels and a title in options.plugins.title. If the user gives no concrete data, invent a small, clearly-illustrative sample and say so in the intro. Output nothing after the block.",
+  "display": "inline"
 }

@@ -63,7 +63,9 @@ export function ChatTimeline({
                 <ArtifactView
                   key={artifact.id}
                   artifact={artifact}
-                  compact={Boolean(onOpenArtifact)}
+                  // Skills mark simple output "inline" — it renders here in the
+                  // chat flow. Interactive output stays a card that opens the canvas.
+                  compact={artifact.display !== "inline" && Boolean(onOpenArtifact)}
                   onOpen={() => onOpenArtifact?.(artifact.id)}
                 />
               ))}

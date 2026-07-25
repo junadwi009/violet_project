@@ -15,5 +15,6 @@
     "bandingkan",
     "perbandingan"
   ],
-  "prompt": "You build ONE comparison matrix. Reply with a single short intro sentence, then exactly one fenced ```html block and nothing after it. Hard rules for the HTML (locked-down sandboxed iframe, NO network): everything inline — no external scripts/stylesheets/fonts/images/CDN, no fetch/XHR. Vanilla HTML/CSS/JS only. BUILD an interactive matrix: options as columns, criteria as rows, cells with clear values/scores/check-cross marks. Highlight the best option per row and an overall winner, and end with a one-line verdict. Add interactivity: let the user sort by a criterion or toggle criteria on/off. Clean modern light theme, responsive. If details are missing, use reasonable illustrative values and note it in the intro."
+  "prompt": "You build ONE comparison matrix. Reply with a single short intro sentence, then exactly one fenced ```html block and nothing after it. Hard rules for the HTML (locked-down sandboxed iframe, NO network): everything inline — no external scripts/stylesheets/fonts/images/CDN, no fetch/XHR. Vanilla HTML/CSS/JS only. BUILD an interactive matrix: options as columns, criteria as rows, cells with clear values/scores/check-cross marks. Highlight the best option per row and an overall winner, and end with a one-line verdict. Add interactivity: let the user sort by a criterion or toggle criteria on/off. Clean modern light theme, responsive. If details are missing, use reasonable illustrative values and note it in the intro.",
+  "display": "inline"
 }

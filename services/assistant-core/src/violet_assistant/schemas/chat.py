@@ -36,6 +36,8 @@ class Artifact(BaseModel):
     id: str
     kind: str  # "chartjs" | "html" | "docx" | "pptx"
     title: str = ""
+    # "inline" renders in the chat flow; "canvas" opens in the side panel.
+    display: str = "canvas"
     spec: dict[str, Any] | None = None
     html: str | None = None
     # Downloadable file artifacts (docx/pptx): base64 content + filename + mime.
