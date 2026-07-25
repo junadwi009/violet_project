@@ -28,9 +28,15 @@ type ChatTimelineProps = {
   messages: ChatMessage[];
   typing: boolean;
   assistantName: string;
+  onOpenArtifact?: (id: string) => void;
 };
 
-export function ChatTimeline({ messages, typing, assistantName }: ChatTimelineProps) {
+export function ChatTimeline({
+  messages,
+  typing,
+  assistantName,
+  onOpenArtifact,
+}: ChatTimelineProps) {
   return (
     <div className="w-full lg:w-3/5 ml-0 mr-auto lg:ml-12 space-y-8 flex flex-col pb-12">
       {messages.map((message) =>
@@ -54,8 +60,29 @@ export function ChatTimeline({ messages, typing, assistantName }: ChatTimelinePr
                 {renderRich(message.content)}
               </div>
               {message.artifacts?.map((artifact) => (
-                <ArtifactView key={artifact.id} artifact={artifact} />
+                <ArtifactView
+                  key={artifact.id}
+                  artifact={artifact}
+                  compact={Boolean(onOpenArtifact)}
+                  onOpen={() => onOpenArtifact?.(artifact.id)}
+                />
               ))}
+              {message.citations && message.citations.length > 0 && (
+                <ul className="mt-1 space-y-1">
+                  {message.citations.map((url) => (
+                    <li key={url} className="text-[11px] truncate">
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-steel-highlight hover:underline"
+                      >
+                        {url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <span className="text-[10px] text-steel">
                 {assistantName} · Assistant
               </span>

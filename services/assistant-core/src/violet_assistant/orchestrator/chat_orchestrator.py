@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from violet_assistant.config import Settings
@@ -16,6 +17,9 @@ from violet_assistant.skills.registry import SkillRegistry
 from violet_assistant.agents.registry import AgentRegistry
 from violet_assistant.agents.runner import AgentRunner
 
+if TYPE_CHECKING:
+    from violet_assistant.preferences.store import PreferencesStore
+
 
 class ChatOrchestrator:
     def __init__(
@@ -31,6 +35,8 @@ class ChatOrchestrator:
         skill_engine: SkillEngine | None = None,
         agent_registry: AgentRegistry | None = None,
         agent_runner: AgentRunner | None = None,
+        preferences: "PreferencesStore | None" = None,
+        web_provider: LLMProvider | None = None,
     ) -> None:
         self.settings = settings
         self.provider = provider
@@ -43,6 +49,8 @@ class ChatOrchestrator:
         self.skill_engine = skill_engine
         self.agent_registry = agent_registry
         self.agent_runner = agent_runner
+        self.preferences = preferences
+        self.web_provider = web_provider
 
     def _select_provider(self, requested: str | None) -> LLMProvider:
         if requested and requested in self.provider_registry:
@@ -79,14 +87,19 @@ class ChatOrchestrator:
             ),
             *history,
         ]
+        prefs = (
+            self.preferences.effective(self.settings) if self.preferences else {}
+        )
         base_options = LLMOptions(
-            model=self.settings.llm_model,
+            model=prefs.get("llm_model", self.settings.llm_model),
+            temperature=prefs.get("temperature", self.settings.default_temperature),
             metadata={
                 "personality_id": profile.id,
                 "personality_name": profile.name,
             },
         )
         artifacts: list[Artifact] = []
+        citations: list[str] = []
         agent_used: str | None = None
         is_mock = request.provider == "mock"
 
@@ -95,13 +108,19 @@ class ChatOrchestrator:
             if self.agent_registry is not None
             else None
         )
+        explicit_skill = (
+            self.skill_registry.get(request.skill_id)
+            if (self.skill_registry is not None and request.skill_id)
+            else None
+        )
         skill = (
             self.skill_registry.detect(request.content)
             if self.skill_registry is not None
             else None
         )
 
-        # Precedence: mock → explicit agent → skill → auto-detected agent → cascade → provider.
+        # Precedence: mock → explicit agent → web-search → explicit skill →
+        # auto-detected skill → auto-detected agent → cascade → provider.
         if is_mock:
             llm_response = await self._select_provider(request.provider).chat(
                 messages, base_options
@@ -109,6 +128,22 @@ class ChatOrchestrator:
         elif explicit_agent is not None and self.agent_runner is not None:
             llm_response = await self.agent_runner.run(explicit_agent, messages)
             agent_used = explicit_agent.id
+        elif request.web_search and self.web_provider is not None:
+            from violet_assistant.web.search import web_answer
+
+            answer = await web_answer(
+                self.web_provider,
+                prefs.get("web_search_model", self.settings.web_search_model),
+                messages,
+            )
+            llm_response = LLMResponse(text=answer.text, emotion="focused")
+            citations = answer.citations
+        elif explicit_skill is not None and self.skill_engine is not None:
+            intro, artifact_dicts = await self.skill_engine.generate(
+                explicit_skill, request.content
+            )
+            llm_response = LLMResponse(text=intro, emotion="focused")
+            artifacts = [Artifact.model_validate(item) for item in artifact_dicts]
         elif skill is not None and self.skill_engine is not None:
             intro, artifact_dicts = await self.skill_engine.generate(skill, request.content)
             llm_response = LLMResponse(text=intro, emotion="focused")
@@ -145,5 +180,6 @@ class ChatOrchestrator:
             tool_requests=[],
             artifacts=artifacts,
             agent=agent_used,
+            citations=citations,
         )
 

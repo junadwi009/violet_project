@@ -17,6 +17,8 @@ class ChatRequest(BaseModel):
     personality_id: str = "violet.default"
     provider: str | None = None
     agent: str | None = None
+    skill_id: str | None = None
+    web_search: bool = False
     context: ChatContext = Field(default_factory=ChatContext)
 
 
@@ -51,4 +53,5 @@ class ChatResponse(BaseModel):
     tool_requests: list[dict[str, Any]] = Field(default_factory=list)
     artifacts: list[Artifact] = Field(default_factory=list)
     agent: str | None = None
+    citations: list[str] = Field(default_factory=list)
 

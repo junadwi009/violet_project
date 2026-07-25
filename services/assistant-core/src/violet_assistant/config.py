@@ -74,6 +74,11 @@ class Settings:
     agent_api_key: str | None = None
     # Model used for imported SKILL.md agents (they don't specify a model).
     agent_default_model: str = "nousresearch/hermes-4-70b"
+    # Web search (Phase 4) — key reuses OpenRouter.
+    web_search_base_url: str = "https://openrouter.ai/api/v1"
+    web_search_model: str = "deepseek/deepseek-chat-v3.1"
+    web_search_api_key: str | None = None
+    default_temperature: float = 0.2
 
 
 def load_settings(repo_root: Path | None = None) -> Settings:
@@ -148,6 +153,18 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         agent_default_model=os.getenv(
             "AGENT_DEFAULT_MODEL", "nousresearch/hermes-4-70b"
         ),
+        web_search_base_url=os.getenv(
+            "WEB_SEARCH_BASE_URL",
+            os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        ),
+        web_search_model=os.getenv(
+            "WEB_SEARCH_MODEL",
+            os.getenv("TECHNICAL_MODEL", "deepseek/deepseek-chat-v3.1"),
+        ),
+        web_search_api_key=os.getenv("WEB_SEARCH_API_KEY")
+        or os.getenv("OPENROUTER_API_KEY")
+        or None,
+        default_temperature=float(os.getenv("DEFAULT_TEMPERATURE", "0.2")),
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),

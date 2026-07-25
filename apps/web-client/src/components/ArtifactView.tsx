@@ -18,7 +18,7 @@ const HTML_CSP =
   "script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; " +
   "connect-src 'none'; base-uri 'none'; form-action 'none'\">";
 
-function ChartArtifact({ artifact }: { artifact: Artifact }) {
+export function ChartArtifact({ artifact }: { artifact: Artifact }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +46,7 @@ function ChartArtifact({ artifact }: { artifact: Artifact }) {
   );
 }
 
-function HtmlArtifact({ artifact }: { artifact: Artifact }) {
+export function HtmlArtifact({ artifact }: { artifact: Artifact }) {
   const [expanded, setExpanded] = useState(false);
   const srcDoc = `<!doctype html><html><head><meta charset="utf-8">${HTML_CSP}</head><body>${artifact.html ?? ""}</body></html>`;
   return (
@@ -76,7 +76,7 @@ function base64ToBlob(base64: string, mime: string): Blob {
   return new Blob([bytes], { type: mime });
 }
 
-function FileArtifact({ artifact }: { artifact: Artifact }) {
+export function FileArtifact({ artifact }: { artifact: Artifact }) {
   const isPptx = artifact.kind === "pptx";
   function download() {
     if (!artifact.file_base64) return;
@@ -115,7 +115,15 @@ function FileArtifact({ artifact }: { artifact: Artifact }) {
   );
 }
 
-export function ArtifactView({ artifact }: { artifact: Artifact }) {
+export function ArtifactView({
+  artifact,
+  compact = false,
+  onOpen,
+}: {
+  artifact: Artifact;
+  compact?: boolean;
+  onOpen?: () => void;
+}) {
   const isChart = artifact.kind === "chartjs";
   const isFile = artifact.kind === "docx" || artifact.kind === "pptx";
   const icon = isChart ? (
@@ -129,13 +137,31 @@ export function ArtifactView({ artifact }: { artifact: Artifact }) {
   ) : (
     <LayoutDashboard size={14} className="text-steel-highlight" />
   );
+  const title =
+    artifact.title || (isChart ? "Chart" : isFile ? "Document" : "Dashboard");
+
+  // Compact card: just a clickable header that opens the artifact in the canvas.
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="mt-3 w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-navy-700/25 bg-white shadow-sm hover:border-steel-highlight/40 transition text-left"
+      >
+        {icon}
+        <span className="text-xs font-semibold text-steel-dark truncate">{title}</span>
+        <span className="ml-auto text-[10px] text-steel-highlight uppercase tracking-wider flex items-center gap-1">
+          <Maximize2 size={11} /> Open in canvas
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div className="mt-3 rounded-xl border border-navy-700/25 bg-white overflow-hidden shadow-sm">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-navy-700/15 bg-navy-900/60">
         {icon}
-        <span className="text-xs font-semibold text-steel-dark">
-          {artifact.title || (isChart ? "Chart" : isFile ? "Document" : "Dashboard")}
-        </span>
+        <span className="text-xs font-semibold text-steel-dark">{title}</span>
         <span className="ml-auto text-[10px] text-steel/50 uppercase tracking-wider">
           {artifact.kind}
         </span>

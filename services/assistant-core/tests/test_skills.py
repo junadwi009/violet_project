@@ -126,3 +126,13 @@ def test_parse_plain_text_has_no_artifacts() -> None:
     intro, artifacts = parse_artifacts("just a normal answer")
     assert intro == "just a normal answer"
     assert artifacts == []
+
+
+def test_registry_get_returns_skill_by_id(tmp_path) -> None:
+    d = _write_skill(
+        tmp_path,
+        {"id": "chart", "name": "Chart", "kind": "chartjs", "triggers": ["chart"], "prompt": "p"},
+    )
+    reg = SkillRegistry(d)
+    assert reg.get("chart").name == "Chart"
+    assert reg.get("nope") is None
