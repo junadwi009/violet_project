@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from violet_assistant.knowledge.indexer import KnowledgeIndexer
+from violet_assistant.knowledge.sources.local_folder import LocalFolderSource
 from violet_assistant.routes.knowledge import ReindexRequest, create_knowledge_router
 from violet_assistant.vector.embeddings.mock_embedder import MockEmbedder
 from violet_assistant.vector.store.sqlite_vector_store import SqliteVectorStore
@@ -22,7 +23,7 @@ async def test_knowledge_status_and_reindex(tmp_path):
     (kdir / "a.txt").write_text("hello", encoding="utf-8")
     store = SqliteVectorStore(tmp_path / "k.db")
     store.initialize()
-    indexer = KnowledgeIndexer(MockEmbedder(), store, kdir)
+    indexer = KnowledgeIndexer(MockEmbedder(), store, [LocalFolderSource(kdir)])
     router = create_knowledge_router(indexer, store, str(kdir), "mock")
 
     before = await _endpoint(router, "GET")()

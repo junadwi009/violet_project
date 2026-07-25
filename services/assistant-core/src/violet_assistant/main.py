@@ -66,15 +66,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     knowledge_indexer = None
     knowledge_store = None
     knowledge_model = "none"
+    knowledge_sources: list = []
     if active_settings.rag_provider.strip().lower() == "vector":
+        from violet_assistant.knowledge.sources.local_folder import LocalFolderSource
+
         knowledge_store = SqliteVectorStore(active_settings.knowledge_db)
         knowledge_store.initialize()
         knowledge_embedder = create_embedder(active_settings)
         knowledge_model = knowledge_embedder.name
+        enabled = {
+            s.strip() for s in active_settings.knowledge_sources.split(",") if s.strip()
+        }
+        if "local" in enabled:
+            knowledge_sources.append(LocalFolderSource(active_settings.knowledge_dir))
+        if (
+            "gdrive" in enabled
+            and active_settings.gdrive_folder_id
+            and active_settings.google_oauth_client_secrets
+        ):
+            from violet_assistant.knowledge.sources.google_drive import GoogleDriveSource
+
+            knowledge_sources.append(GoogleDriveSource(active_settings))
         knowledge_indexer = KnowledgeIndexer(
             embedder=knowledge_embedder,
             store=knowledge_store,
-            knowledge_dir=active_settings.knowledge_dir,
+            sources=knowledge_sources,
             chunk_size=active_settings.knowledge_chunk_size,
             chunk_overlap=active_settings.knowledge_chunk_overlap,
         )
