@@ -1,17 +1,17 @@
 import { Layers } from "lucide-react";
-import type { ProviderInfo, RouterInfo } from "../../../lib/api";
+import type { ProviderInfo, RouterInfo, SettingsValues } from "../../../lib/api";
 import { SectionHeader } from "../controls/SectionHeader";
 import { SliderRow } from "../controls/SliderRow";
+import { TextRow } from "../controls/TextRow";
 import type { PanelProps } from "../SettingsShell";
 
-// Exactly `keys_in_group("model")` from `preferences/store.py`. That includes
-// `web_search_model`, which *renders* next to the web-search toggle in
-// `BehaviorPanel` but is reset by this panel's button — so this panel is the one
-// that must show the dot for it. Task 12/13 decides where the input lives.
+// Exactly `keys_in_group("model")` from `preferences/store.py`. `web_search_model`
+// is NOT here: it renders next to the web-search toggle in `BehaviorPanel` and,
+// as of Task 13, it groups with `behavior` on the backend too — so that panel
+// owns both its dot and its reset.
 const MODEL_KEYS = [
   "llm_model",
   "temperature",
-  "web_search_model",
   "persona_model",
   "technical_model",
   "artifact_model",
@@ -28,12 +28,14 @@ export function ModelPanel({
   selectedProvider,
   onSelectProvider,
   router,
+  defaults,
   onReset,
 }: PanelProps & {
   providers: ProviderInfo[];
   selectedProvider: string;
   onSelectProvider: (id: string) => void;
   router: RouterInfo | null;
+  defaults: SettingsValues;
   onReset: () => void;
 }) {
   const modified = MODEL_KEYS.some((key) => overridden.includes(key));
@@ -82,33 +84,6 @@ export function ModelPanel({
         </div>
       )}
 
-      {devMode && router && router.mode === "cascade" && (
-        <div>
-          <label className="block text-xs font-semibold text-steel uppercase tracking-wider mb-2">
-            Routing · cascade
-          </label>
-          <div className="space-y-1.5 p-3 bg-steel-ice rounded-xl border border-navy-700/20">
-            <div className="flex items-center gap-2 text-xs text-steel-dark">
-              <Layers size={13} className="text-steel-highlight shrink-0" />
-              <span className="font-medium">Persona</span>
-              <span className="ml-auto font-mono text-[11px] text-steel truncate max-w-[190px]">
-                {router.persona_model}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-steel-dark">
-              <Layers size={13} className="text-steel/50 shrink-0" />
-              <span className="font-medium">Technical</span>
-              <span className="ml-auto font-mono text-[11px] text-steel truncate max-w-[190px]">
-                {router.technical_model}
-              </span>
-            </div>
-            <p className="text-[10px] text-steel/60 pt-1">
-              Persona answers; delegates heavy calc/code to the technical layer on demand.
-            </p>
-          </div>
-        </div>
-      )}
-
       {devMode && (
         <div className="p-3 bg-steel-ice rounded-xl border border-navy-700/20">
           <SliderRow
@@ -122,6 +97,59 @@ export function ModelPanel({
             onChange={(next) => patchDebounced({ temperature: next })}
           />
         </div>
+      )}
+
+      {devMode && router?.mode === "cascade" && (
+        <div className="space-y-3 p-3 bg-steel-ice rounded-xl border border-navy-700/20">
+          <label className="flex items-center gap-2 text-xs font-semibold text-steel uppercase tracking-wider">
+            <Layers size={13} className="text-steel-highlight shrink-0" />
+            Routing · cascade
+          </label>
+          <p className="text-[11px] text-steel/70">
+            Persona answers; heavy calculation and code are delegated to the technical
+            layer on demand. Blank falls back to the server default.
+          </p>
+          <TextRow
+            label="Persona model"
+            value={String(values.persona_model ?? "")}
+            placeholder={String(defaults.persona_model ?? "")}
+            onChange={(persona_model) => patchDebounced({ persona_model })}
+          />
+          <TextRow
+            label="Technical model"
+            value={String(values.technical_model ?? "")}
+            placeholder={String(defaults.technical_model ?? "")}
+            onChange={(technical_model) => patchDebounced({ technical_model })}
+          />
+        </div>
+      )}
+
+      {devMode && (
+        <TextRow
+          label="Artifact model"
+          value={String(values.artifact_model ?? "")}
+          placeholder={String(defaults.artifact_model ?? "")}
+          hint="Generates canvas artifacts."
+          onChange={(artifact_model) => patchDebounced({ artifact_model })}
+        />
+      )}
+      {devMode && (
+        <TextRow
+          label="Vision model"
+          value={String(values.vision_model ?? "")}
+          placeholder={String(defaults.vision_model ?? "")}
+          hint="Reads uploaded images and scanned PDFs."
+          onChange={(vision_model) => patchDebounced({ vision_model })}
+        />
+      )}
+      {devMode && (
+        <TextRow
+          label="Default agent model"
+          value={String(values.agent_default_model ?? "")}
+          placeholder={String(defaults.agent_default_model ?? "")}
+          hint="Used by agents that do not pin their own model."
+          onChange={(agent_default_model) => patchDebounced({ agent_default_model })}
+        />
       )}
     </div>
   );

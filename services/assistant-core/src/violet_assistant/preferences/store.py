@@ -64,7 +64,6 @@ EDITABLE_KEYS: dict[str, PrefSpec] = {
     # model
     "llm_model": PrefSpec(_is_str, "model"),
     "temperature": PrefSpec(_num(0.0, 2.0), "model"),
-    "web_search_model": PrefSpec(_is_str, "model"),
     # Model IDENTIFIERS only — the matching *_base_url / *_api_key stay frozen in Settings.
     "persona_model": PrefSpec(_is_str, "model"),
     "technical_model": PrefSpec(_is_str, "model"),
@@ -76,6 +75,10 @@ EDITABLE_KEYS: dict[str, PrefSpec] = {
     "memory_auto_save": PrefSpec(_is_bool, "behavior"),
     "web_search_enabled": PrefSpec(_is_bool, "behavior"),
     "canvas_enabled": PrefSpec(_is_bool, "behavior"),
+    # `web_search_model` is a web-search knob, not a model identity — it lives
+    # next to `web_search_enabled` in the UI (BehaviorPanel) and its dot/reset
+    # need to match that, so it groups with behavior rather than model.
+    "web_search_model": PrefSpec(_is_str, "behavior"),
     # voice
     "voice_lang": PrefSpec(_is_str, "voice"),
     "voice_name": PrefSpec(_is_str, "voice"),

@@ -401,3 +401,141 @@ that file.
 - None outstanding from this pass. Task 17 still owns the dark-mode
   contrast sweep noted in the original Task 12 entry above; unaffected by
   this fix pass.
+
+---
+
+# Task 13 — Model panel gains editable model ids; `web_search_model` regroups to Behavior
+
+- **Date:** 2026-07-27
+- **Track:** cross-cutting (web-client UI + backend preferences)
+- **Branch:** feat/settings-overhaul
+- **Author:** Claude Code (Task 13 of the settings overhaul plan)
+
+## What
+Turned `ModelPanel`'s read-only cascade readout (persona/technical model, shown
+as plain text off `RouterInfo`) into editable `TextRow`s bound to preferences,
+and added three more previously-missing model-id fields (artifact, vision,
+default agent). All five new inputs use `patchDebounced` and show the server
+default as their placeholder when blank.
+
+Also resolved the seam flagged since Task 11's log: `web_search_model` lived in
+the backend's `model` group but rendered under `BehaviorPanel`, next to the
+`web_search_enabled` toggle that gates it — so editing it from Behavior and
+resetting it from Model were two different panels acting on the same field.
+Moved the key to the `behavior` group in `EDITABLE_KEYS`
+(`services/assistant-core/src/violet_assistant/preferences/store.py`) — a
+one-line regroup, no validator change — and updated both panels'
+`MODEL_KEYS`/`BEHAVIOR_KEYS` constants to match `keys_in_group()` exactly.
+While in `BehaviorPanel`, also fixed its `web_search_model` field's
+placeholder, which was a hardcoded literal `"web search model"` instead of the
+server default — inconsistent with every other model-id field and the same
+blank-shows-default contract this task is about, so gave the panel a
+`defaults` prop too.
+
+## Why
+Task 3's `ModelResolver` already reads these preference keys at call time, but
+nothing in the UI could set persona/technical/artifact/vision/agent-default
+model ids — only `llm_model` (indirectly, via provider selection) and
+`web_search_model` were reachable. This closes that gap for the remaining five.
+The regroup fixes a real UX bug, not a cosmetic one: before this change,
+overriding `web_search_model` from Behavior made Behavior's own group-reset a
+no-op button (it reset a key it didn't own) while Model's reset silently
+cleared a field Model never displayed.
+
+## Files touched
+- mod `apps/web-client/src/components/settings/panels/ModelPanel.tsx` —
+  `MODEL_KEYS` drops `web_search_model`; cascade `Persona model`/`Technical
+  model` become `TextRow`s (was plain `<span>` off `router.persona_model`);
+  added `Artifact model`, `Vision model`, `Default agent model` rows; added
+  `defaults: SettingsValues` prop.
+- mod `apps/web-client/src/components/settings/panels/BehaviorPanel.tsx` —
+  `BEHAVIOR_KEYS` gains `web_search_model`; its existing `TextRow`'s
+  hardcoded placeholder replaced with `defaults.web_search_model`; added
+  `defaults: SettingsValues` prop.
+- mod `apps/web-client/src/components/settings/SettingsPanel.tsx` — derives
+  `defaults = settings?.defaults ?? {}` once and passes it to both
+  `ModelPanel` and `BehaviorPanel`.
+- mod `services/assistant-core/src/violet_assistant/preferences/store.py` —
+  `web_search_model`'s `PrefSpec` group changed `"model"` → `"behavior"` in
+  `EDITABLE_KEYS`. No validator change (`_is_str`, unchanged), no key
+  renamed, no new key added — `test_keys_in_group_partitions_all_keys` still
+  covers it under its new group without modification.
+
+## Interfaces / contracts changed
+- `ModelPanel` and `BehaviorPanel` both now require `defaults: SettingsValues`
+  in addition to `PanelProps`, mirroring how `router`/`providers`/etc. are
+  passed as panel-specific extras rather than added to the shared
+  `PanelProps` type — consistent with Task 11's original pattern for
+  `ModelPanel`.
+- Backend: `keys_in_group("model")` no longer includes `web_search_model`;
+  `keys_in_group("behavior")` now does. `EDITABLE_KEYS` set membership and
+  every key's validator are unchanged, so `GET/PATCH/POST /api/settings*`
+  response shapes are unchanged — only which group's reset/dot a client-side
+  UI attributes the key to.
+
+## Status
+done
+
+## Verification
+- Backend: `python -m pytest` from repo root, **system interpreter**
+  (`C:\Users\arjuna.putranto\anaconda3\python.exe`, the repo `.venv` lacks
+  `httpx`/`pytest-asyncio` and was not touched) → **302 passed**, 237
+  warnings (pre-existing `on_event`/httpx deprecation noise, unrelated to
+  this change), 98.05s. No test pinned `web_search_model` to a specific
+  group by name — `test_settings_groups.py`'s
+  `test_keys_in_group_partitions_all_keys` only asserts the groups still
+  partition the full key set, which they do.
+- Frontend: `cd apps/web-client && npm run build` → `tsc -b` clean,
+  `✓ built in 15.25s`.
+- Browser walkthrough: backend `LLM_PROVIDER=mock` on :8000, vite dev server
+  on :5173 (port free, `strictPort: true` never triggered).
+  - **Debounce, one PATCH per pause, not per keystroke:** typed `-testxyz`
+    (8 chars) into Artifact model with `End` then `type`; exactly **one**
+    new `PATCH /api/settings` appeared after the pause, body
+    `artifact_model: "qwen/qwen3-coder-testxyz"`. Same result typing 9 chars
+    (`-reloadme`) into Vision model. Consistent with
+    `useDebouncedPatch`'s single `setTimeout(flush, 300)` that keystrokes
+    keep pushing back.
+  - **Clear-to-empty persists and falls back:** cleared Artifact model
+    entirely (via the browser tool's direct value-set, since this
+    environment's synthesized `Backspace` keydown did not trigger native
+    text deletion on this input for reasons unrelated to the app — `type`
+    and programmatic value-set both worked and both go through the same
+    React `onChange`/`patchDebounced` path a real keystroke would). The
+    PATCH body carried `artifact_model: ""`; the field then showed the grey
+    placeholder `qwen/qwen3-coder` (`defaults.artifact_model`) instead of
+    looking broken.
+  - **Reload persistence:** full page reload; Vision model still read
+    `qwen/qwen3-vl-32b-instruct-reloadme` (typed value survived), Artifact
+    model still showed the empty field with the `qwen/qwen3-coder`
+    placeholder (empty override also survived, distinctly from "never set").
+  - **Group ownership, measured via `GET /api/settings`, not just the UI:**
+    overrode `web_search_model` to `...-override` from Behavior. State:
+    `overridden: [..., "artifact_model", "vision_model", "web_search_model"]`.
+    Clicked **Model**'s Reset section → `overridden` became
+    `["ui_mode", "web_search_enabled", "web_search_model"]` and
+    `artifact_model`/`vision_model` were back to their defaults —
+    `web_search_model` untouched, still `...-override`. Then clicked
+    **Behavior**'s Reset section → `overridden: ["ui_mode"]`,
+    `web_search_model` back to `deepseek/deepseek-chat-v3.1`. Confirms Model
+    no longer claims the key and Behavior's reset actually clears it — the
+    exact defect Task 11's log flagged as an open question.
+  - **Dev/user mode gating:** with the Model tab visited and dev mode on,
+    switched Mode to **User** in General — `Model` and `Agents` tabs and the
+    `DEV` nav divider disappeared from the tablist, and the sidebar's
+    `Skill Lab` button also disappeared (unrelated dev-gated control,
+    confirms the mode flip is real, not a stale snapshot). Switched back to
+    **Developer** — both tabs returned.
+  - No console errors observed during the walkthrough.
+- Cleanup: `data/preferences.json` back to exactly `{"ui_mode":
+  "developer"}` (confirmed via `curl /api/settings` showing
+  `overridden: ["ui_mode"]` before closing, and reading the file directly).
+  Real `.env` untouched. Backend (uvicorn :8000) and vite (:5173) processes
+  killed at the end of the session; browser preview stopped.
+
+## Next
+- Task 14 (Voice) and Task 15 (Data & privacy) remain; Task 17 still owns
+  the dark-mode contrast sweep — this task introduced no new
+  `bg-steel-dark text-white` / `bg-white text-steel-dark` pairs (all new
+  rows reuse `TextRow`, which already uses the themed `bg-navy-800` token
+  per its own comment).

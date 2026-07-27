@@ -1,4 +1,5 @@
 import { Globe } from "lucide-react";
+import type { SettingsValues } from "../../../lib/api";
 import { SectionHeader } from "../controls/SectionHeader";
 import { TextRow } from "../controls/TextRow";
 import { ToggleRow } from "../controls/ToggleRow";
@@ -6,12 +7,12 @@ import type { PanelProps } from "../SettingsShell";
 
 // Exactly `keys_in_group("behavior")` from `preferences/store.py`, so the dot
 // and the "Reset section" button describe what the reset will actually do.
-// `web_search_model` renders below but is in the backend's `model` group, so it
-// is counted by `ModelPanel` — counting it here made Behavior offer an enabled
-// reset that silently cleared nothing, and hid Model's, which does clear it.
-// Whether the input should *live* here is Task 12/13's call.
+// `web_search_model` renders below, next to the toggle that gates it, and as
+// of Task 13 it groups with `behavior` on the backend too — so this panel now
+// owns both its dot and its reset; `ModelPanel` no longer claims it.
 const BEHAVIOR_KEYS = [
   "web_search_enabled",
+  "web_search_model",
   "canvas_enabled",
   "memory_require_approval",
   "memory_auto_save",
@@ -23,8 +24,9 @@ export function BehaviorPanel({
   patchDebounced,
   patchNow,
   devMode,
+  defaults,
   onReset,
-}: PanelProps & { onReset: () => void }) {
+}: PanelProps & { defaults: SettingsValues; onReset: () => void }) {
   const modified = BEHAVIOR_KEYS.some((key) => overridden.includes(key));
   const webSearchEnabled = values.web_search_enabled === true;
   const canvasEnabled = values.canvas_enabled !== false;
@@ -55,7 +57,7 @@ export function BehaviorPanel({
           <TextRow
             label="Web search model"
             value={String(values.web_search_model ?? "")}
-            placeholder="web search model"
+            placeholder={String(defaults.web_search_model ?? "")}
             onChange={(next) => patchDebounced({ web_search_model: next })}
           />
         )}

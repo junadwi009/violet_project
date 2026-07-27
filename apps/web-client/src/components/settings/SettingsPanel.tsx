@@ -109,6 +109,7 @@ export function SettingsPanel({
 
   const values = settings?.values ?? {};
   const overridden = settings?.overridden ?? [];
+  const defaults = settings?.defaults ?? {};
 
   // Reopening lands on General rather than wherever the last visit ended:
   // Settings is entered from one generic trigger with no memory of intent, so
@@ -191,6 +192,7 @@ export function SettingsPanel({
         return (
           <BehaviorPanel
             {...panelProps}
+            defaults={defaults}
             onReset={() => handleReset("behavior")}
           />
         );
@@ -221,6 +223,7 @@ export function SettingsPanel({
             selectedProvider={selectedProvider}
             onSelectProvider={onSelectProvider}
             router={router}
+            defaults={defaults}
             onReset={() => handleReset("model")}
           />
         );
