@@ -41,8 +41,10 @@ import {
   canRecognizeSpeech,
   canSpeak,
   createSpeechRecognizer,
+  DEFAULT_VOICE,
   speakText,
   stopSpeaking,
+  type VoiceSettings,
 } from "./lib/speech";
 import { AvatarEmotion, AvatarState, normalizeEmotion } from "./lib/avatar";
 import {
@@ -74,6 +76,21 @@ function shortProviderLabel(id: string): string {
   if (id === "mock") return "Mock";
   if (id === "openai_compatible") return "Local";
   return id;
+}
+
+// Single source of truth for turning stored preferences into the shape
+// `speakText` / `createSpeechRecognizer` expect, so every call site agrees on
+// what "current voice settings" means instead of re-reading `appSettings`
+// with its own defaults inline.
+function voiceSettingsFromValues(settings: AppSettings | null): VoiceSettings {
+  if (!settings) return DEFAULT_VOICE;
+  const { values } = settings;
+  return {
+    lang: String(values.voice_lang ?? DEFAULT_VOICE.lang),
+    voiceName: String(values.voice_name ?? DEFAULT_VOICE.voiceName),
+    rate: Number(values.voice_rate ?? DEFAULT_VOICE.rate),
+    pitch: Number(values.voice_pitch ?? DEFAULT_VOICE.pitch),
+  };
 }
 
 export function App() {
@@ -283,9 +300,16 @@ export function App() {
         },
       ]);
 
-      if (speechOutputEnabled) {
+      // Two independent triggers can ask for the same reply to be spoken: the
+      // session-local composer toggle (`speechOutputEnabled`) and the
+      // persisted `auto_speak` preference. Route both through one call so
+      // having both on doesn't fire `speakText` twice (it cancels+restarts
+      // internally, which would just cut the first utterance short).
+      if (speechOutputEnabled || appSettings?.values.auto_speak === true) {
         setAvatarState("speaking");
-        speakText(response.text, () => setAvatarState("idle"));
+        speakText(response.text, voiceSettingsFromValues(appSettings), () =>
+          setAvatarState("idle"),
+        );
       } else {
         setAvatarState(
           response.memory_candidates.length > 0 ? "confirming" : "idle",
@@ -372,6 +396,7 @@ export function App() {
         setAvatarEmotion("concerned");
       },
       () => setIsListening(false),
+      voiceSettingsFromValues(appSettings),
     );
 
     if (!recognizer) {

@@ -53,10 +53,38 @@ export function canSpeak(): boolean {
   return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 }
 
+export type VoiceSettings = {
+  lang: string;
+  voiceName: string;
+  rate: number;
+  pitch: number;
+};
+
+export const DEFAULT_VOICE: VoiceSettings = {
+  lang: "id-ID",
+  voiceName: "",
+  rate: 1,
+  pitch: 1,
+};
+
+/** Browser voice lists are per-browser and per-OS, and populate asynchronously. */
+export function listVoices(): SpeechSynthesisVoice[] {
+  if (!canSpeak()) return [];
+  return window.speechSynthesis.getVoices();
+}
+
+export function onVoicesChanged(callback: () => void): () => void {
+  if (!canSpeak()) return () => {};
+  window.speechSynthesis.addEventListener("voiceschanged", callback);
+  return () =>
+    window.speechSynthesis.removeEventListener("voiceschanged", callback);
+}
+
 export function createSpeechRecognizer(
   onFinalText: (text: string) => void,
   onError: (message: string) => void,
   onEnd: () => void,
+  voice: VoiceSettings = DEFAULT_VOICE,
 ): SpeechRecognition | null {
   const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
   if (!Recognition) {
@@ -66,7 +94,7 @@ export function createSpeechRecognizer(
   const recognition = new Recognition();
   recognition.continuous = false;
   recognition.interimResults = false;
-  recognition.lang = "id-ID";
+  recognition.lang = voice.lang;
   recognition.onresult = (event: SpeechRecognitionEvent) => {
     const result = event.results.item(0);
     const alternative = result.item(0);
@@ -79,16 +107,25 @@ export function createSpeechRecognizer(
   return recognition;
 }
 
-export function speakText(text: string, onEnd?: () => void): void {
+export function speakText(
+  text: string,
+  voice: VoiceSettings = DEFAULT_VOICE,
+  onEnd?: () => void,
+): void {
   if (!canSpeak()) {
     onEnd?.();
     return;
   }
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "id-ID";
-  utterance.rate = 1;
-  utterance.pitch = 1;
+  utterance.lang = voice.lang;
+  utterance.rate = voice.rate;
+  utterance.pitch = voice.pitch;
+  if (voice.voiceName) {
+    // A stored name may not exist in this browser; fall back silently.
+    const match = listVoices().find((item) => item.name === voice.voiceName);
+    if (match) utterance.voice = match;
+  }
   utterance.onend = () => onEnd?.();
   utterance.onerror = () => onEnd?.();
   window.speechSynthesis.speak(utterance);

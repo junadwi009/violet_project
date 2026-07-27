@@ -32,6 +32,7 @@ import { GeneralPanel } from "./panels/GeneralPanel";
 import { KnowledgePanel } from "./panels/KnowledgePanel";
 import { ModelPanel } from "./panels/ModelPanel";
 import { SkillsPanel } from "./panels/SkillsPanel";
+import { VoicePanel } from "./panels/VoicePanel";
 
 const NAV: NavItem[] = [
   { id: "general", label: "General", icon: <Settings2 size={14} /> },
@@ -195,6 +196,10 @@ export function SettingsPanel({
             defaults={defaults}
             onReset={() => handleReset("behavior")}
           />
+        );
+      case "voice":
+        return (
+          <VoicePanel {...panelProps} onReset={() => handleReset("voice")} />
         );
       case "knowledge":
         return (
