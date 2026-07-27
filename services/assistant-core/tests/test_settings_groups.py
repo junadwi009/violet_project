@@ -87,3 +87,74 @@ def test_font_scale_rejects_bool(tmp_path):
     store = PreferencesStore(tmp_path / "preferences.json")
     with pytest.raises(ValueError):
         store.patch({"font_scale": True})
+
+
+from fastapi import HTTPException
+
+from violet_assistant.routes.settings import ResetRequest, create_settings_router
+
+
+def _reset_endpoint(router):
+    for route in router.routes:
+        if route.path == "/api/settings/reset":
+            return route.endpoint
+    raise KeyError("reset")
+
+
+def test_store_reset_removes_only_named_keys(tmp_path, settings):
+    store = PreferencesStore(tmp_path / "preferences.json")
+    store.patch({"temperature": 0.9, "theme": "dark", "canvas_enabled": False})
+    store.reset(["temperature"])
+    values = store.effective(settings)
+    assert values["temperature"] == settings.default_temperature
+    assert values["theme"] == "dark"
+    assert set(store.overridden()) == {"theme", "canvas_enabled"}
+
+
+def test_store_reset_is_idempotent(tmp_path, settings):
+    store = PreferencesStore(tmp_path / "preferences.json")
+    store.reset(["temperature"])
+    assert store.overridden() == []
+
+
+@pytest.mark.asyncio
+async def test_reset_by_group(tmp_path, settings):
+    store = PreferencesStore(tmp_path / "preferences.json")
+    store.patch({"theme": "dark", "font_scale": 1.25, "temperature": 0.9})
+    router = create_settings_router(store, settings)
+
+    body = await _reset_endpoint(router)(ResetRequest(group="appearance"))
+    assert body["values"]["theme"] == "system"
+    assert body["values"]["font_scale"] == 1.0
+    # a different group is untouched
+    assert body["values"]["temperature"] == 0.9
+    assert body["overridden"] == ["temperature"]
+
+
+@pytest.mark.asyncio
+async def test_reset_by_keys(tmp_path, settings):
+    store = PreferencesStore(tmp_path / "preferences.json")
+    store.patch({"theme": "dark", "font_scale": 1.25})
+    router = create_settings_router(store, settings)
+
+    body = await _reset_endpoint(router)(ResetRequest(keys=["theme"]))
+    assert body["values"]["theme"] == "system"
+    assert body["values"]["font_scale"] == 1.25
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        ResetRequest(),
+        ResetRequest(group="appearance", keys=["theme"]),
+        ResetRequest(group="nope"),
+        ResetRequest(keys=["llm_api_key"]),
+    ],
+)
+async def test_reset_rejects_bad_requests(tmp_path, settings, payload):
+    store = PreferencesStore(tmp_path / "preferences.json")
+    router = create_settings_router(store, settings)
+    with pytest.raises(HTTPException) as exc_info:
+        await _reset_endpoint(router)(payload)
+    assert exc_info.value.status_code == 422

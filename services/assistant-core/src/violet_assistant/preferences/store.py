@@ -151,6 +151,19 @@ class PreferencesStore:
                 values[key] = value
         return values
 
+    def reset(self, keys: list[str]) -> dict[str, Any]:
+        """Drop the named overrides so ``effective`` falls back to Settings."""
+        for key in keys:
+            if key not in EDITABLE_KEYS:
+                raise ValueError(f"unknown or non-editable key: {key}")
+        current = {
+            key: value for key, value in self._load().items() if key not in keys
+        }
+        current = {key: value for key, value in current.items() if key in EDITABLE_KEYS}
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(current, indent=2), encoding="utf-8")
+        return current
+
     def patch(self, changes: dict[str, Any]) -> dict[str, Any]:
         for key, value in changes.items():
             if key not in EDITABLE_KEYS:
