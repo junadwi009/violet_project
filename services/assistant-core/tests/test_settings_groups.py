@@ -43,3 +43,47 @@ def test_validation_still_works_after_refactor(tmp_path, settings):
         store.patch({"temperature": 5.0})
     with pytest.raises(ValueError):
         store.patch({"llm_api_key": "sk-nope"})
+
+
+def test_appearance_defaults(tmp_path, settings):
+    values = PreferencesStore(tmp_path / "preferences.json").effective(settings)
+    assert values["theme"] == "system"
+    assert values["ui_density"] == "cozy"
+    assert values["font_scale"] == 1.0
+    assert values["accent"] == "violet"
+
+
+def test_voice_defaults(tmp_path, settings):
+    values = PreferencesStore(tmp_path / "preferences.json").effective(settings)
+    assert values["voice_lang"] == "id-ID"
+    assert values["voice_name"] == ""
+    assert values["voice_rate"] == 1.0
+    assert values["voice_pitch"] == 1.0
+    assert values["auto_speak"] is False
+
+
+@pytest.mark.parametrize(
+    ("key", "good", "bad"),
+    [
+        ("theme", "dark", "neon"),
+        ("ui_density", "compact", "airy"),
+        ("font_scale", 1.25, 3.0),
+        ("accent", "teal", "#ff0000"),
+        ("voice_rate", 0.5, 0.1),
+        ("voice_pitch", 2.0, 2.5),
+        ("auto_speak", True, "yes"),
+    ],
+)
+def test_new_keys_validate(tmp_path, settings, key, good, bad):
+    store = PreferencesStore(tmp_path / "preferences.json")
+    store.patch({key: good})
+    assert store.effective(settings)[key] == good
+    with pytest.raises(ValueError):
+        store.patch({key: bad})
+
+
+def test_font_scale_rejects_bool(tmp_path):
+    # bool is a subclass of int; _num must not accept it
+    store = PreferencesStore(tmp_path / "preferences.json")
+    with pytest.raises(ValueError):
+        store.patch({"font_scale": True})

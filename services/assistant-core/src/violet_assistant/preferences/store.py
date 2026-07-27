@@ -39,9 +39,14 @@ class PrefSpec:
     group: str
 
 
-# Task 2 adds "appearance" and "voice" here, together with the keys that fill
-# them — a group with no keys would fail the partition test.
-GROUPS: tuple[str, ...] = ("general", "model", "behavior", "knowledge")
+GROUPS: tuple[str, ...] = (
+    "general",
+    "appearance",
+    "model",
+    "behavior",
+    "voice",
+    "knowledge",
+)
 
 
 EDITABLE_KEYS: dict[str, PrefSpec] = {
@@ -49,6 +54,13 @@ EDITABLE_KEYS: dict[str, PrefSpec] = {
     "ui_mode": PrefSpec(_choice("user", "developer"), "general"),
     "default_personality": PrefSpec(_is_str, "general"),
     "default_provider": PrefSpec(_is_str, "general"),
+    # appearance
+    "theme": PrefSpec(_choice("light", "dark", "system"), "appearance"),
+    "ui_density": PrefSpec(_choice("cozy", "compact"), "appearance"),
+    "font_scale": PrefSpec(_num(0.875, 1.25), "appearance"),
+    "accent": PrefSpec(
+        _choice("violet", "indigo", "teal", "amber", "rose"), "appearance"
+    ),
     # model
     "llm_model": PrefSpec(_is_str, "model"),
     "temperature": PrefSpec(_num(0.0, 2.0), "model"),
@@ -58,6 +70,12 @@ EDITABLE_KEYS: dict[str, PrefSpec] = {
     "memory_auto_save": PrefSpec(_is_bool, "behavior"),
     "web_search_enabled": PrefSpec(_is_bool, "behavior"),
     "canvas_enabled": PrefSpec(_is_bool, "behavior"),
+    # voice
+    "voice_lang": PrefSpec(_is_str, "voice"),
+    "voice_name": PrefSpec(_is_str, "voice"),
+    "voice_rate": PrefSpec(_num(0.5, 2.0), "voice"),
+    "voice_pitch": PrefSpec(_num(0.0, 2.0), "voice"),
+    "auto_speak": PrefSpec(_is_bool, "voice"),
     # knowledge
     "knowledge_auto_sync": PrefSpec(_is_bool, "knowledge"),
 }
@@ -82,6 +100,15 @@ def _defaults(settings: Settings) -> dict[str, Any]:
         "default_provider": settings.llm_provider,
         "ui_mode": "user",
         "knowledge_auto_sync": settings.knowledge_auto_sync,
+        "theme": "system",
+        "ui_density": "cozy",
+        "font_scale": 1.0,
+        "accent": "violet",
+        "voice_lang": "id-ID",
+        "voice_name": "",
+        "voice_rate": 1.0,
+        "voice_pitch": 1.0,
+        "auto_speak": False,
     }
 
 
