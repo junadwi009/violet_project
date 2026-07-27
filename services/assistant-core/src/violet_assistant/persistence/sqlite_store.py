@@ -475,6 +475,70 @@ class SQLiteStore:
                 raise KeyError(memory_id)
         return {"id": memory_id, "status": "deleted", "memory_id": memory_id}
 
+    def delete_session(self, session_id: str) -> dict[str, int]:
+        """Delete a session and everything scoped to it.
+
+        The schema has no ON DELETE CASCADE and SQLite does not enforce foreign
+        keys without PRAGMA foreign_keys=ON, so every child row is removed here
+        explicitly. ``memories`` and ``tool_audit_logs`` are deliberately kept:
+        an approved memory outlives the conversation that produced it, and an
+        audit trail you can erase by clearing a chat is not an audit trail.
+        """
+        with self._connect() as connection:
+            exists = connection.execute(
+                "SELECT 1 FROM sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+            if exists is None:
+                raise KeyError(session_id)
+            candidates = connection.execute(
+                """
+                DELETE FROM memory_candidates
+                WHERE source_message_id IN (
+                  SELECT id FROM messages WHERE session_id = ?
+                )
+                """,
+                (session_id,),
+            ).rowcount
+            runs = connection.execute(
+                "DELETE FROM agent_runs WHERE session_id = ?", (session_id,)
+            ).rowcount
+            messages = connection.execute(
+                "DELETE FROM messages WHERE session_id = ?", (session_id,)
+            ).rowcount
+            connection.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        return {
+            "deleted_sessions": 1,
+            "deleted_messages": messages,
+            "deleted_candidates": candidates,
+            "deleted_agent_runs": runs,
+        }
+
+    def delete_all_sessions(self) -> dict[str, int]:
+        """Delete every session plus its messages, candidates and agent runs.
+
+        Same preservation rules as :meth:`delete_session`: ``memories`` and
+        ``tool_audit_logs`` survive.
+        """
+        with self._connect() as connection:
+            sessions = connection.execute(
+                "SELECT COUNT(*) AS n FROM sessions"
+            ).fetchone()["n"]
+            candidates = connection.execute(
+                """
+                DELETE FROM memory_candidates
+                WHERE source_message_id IN (SELECT id FROM messages)
+                """
+            ).rowcount
+            runs = connection.execute("DELETE FROM agent_runs").rowcount
+            messages = connection.execute("DELETE FROM messages").rowcount
+            connection.execute("DELETE FROM sessions")
+        return {
+            "deleted_sessions": sessions,
+            "deleted_messages": messages,
+            "deleted_candidates": candidates,
+            "deleted_agent_runs": runs,
+        }
+
     def _candidate_row(
         self, connection: sqlite3.Connection, candidate_id: str
     ) -> sqlite3.Row | None:
