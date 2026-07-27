@@ -4,6 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Violet AI</title>
+    <script>
+      // Stamp the cached appearance before the bundle loads, so a dark-theme
+      // user does not see a flash of light while /api/settings is in flight.
+      // The server value overwrites this as soon as it arrives.
+      (function () {
+        try {
+          var a = JSON.parse(localStorage.getItem("violet.appearance") || "{}");
+          var t = a.theme || "system";
+          var dark =
+            t === "dark" ||
+            (t === "system" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          var root = document.documentElement;
+          root.dataset.theme = dark ? "dark" : "light";
+          root.dataset.density = a.density || "cozy";
+          root.dataset.accent = a.accent || "violet";
+          root.style.setProperty("--font-scale", String(a.fontScale || 1));
+        } catch (e) {
+          /* first visit, or storage blocked — defaults apply */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

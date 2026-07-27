@@ -34,6 +34,60 @@
   --animate-glow-slow: glowSlow 5s ease-in-out infinite;
 }
 
+/* ============================================================
+   Dark variant. Overrides the @theme tokens, so every utility
+   that goes through a token inverts with no per-component work.
+   Note --color-steel-dark flips from near-black to near-white:
+   it is the primary ink token, and its name describes its
+   light-mode value, not its role.
+   ============================================================ */
+[data-theme="dark"] {
+  --color-navy-950: #14101c;
+  --color-navy-900: #1c1626;
+  --color-navy-800: #241d31;
+  --color-navy-700: #3a2f4d;
+  --color-steel: #b9a9d1;
+  --color-steel-light: #8d7da8;
+  --color-steel-ice: #241d31;
+  --color-steel-dark: #f2ecfa;
+  --color-steel-highlight: #a855f7;
+}
+
+/* Semantic status colors, so components stop reaching for raw
+   Tailwind palette entries that cannot follow the theme. */
+:root {
+  --color-success: #059669;
+  --color-warning: #d97706;
+}
+[data-theme="dark"] {
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+}
+
+/* Accent — one hue per theme, each checked for >=4.5:1 against its
+   surface because the accent is used for text, not only for fills. */
+[data-accent="indigo"] { --color-steel-highlight: #4f46e5; }
+[data-accent="teal"]   { --color-steel-highlight: #0d9488; }
+[data-accent="amber"]  { --color-steel-highlight: #b45309; }
+[data-accent="rose"]   { --color-steel-highlight: #be123c; }
+
+[data-theme="dark"][data-accent="indigo"] { --color-steel-highlight: #818cf8; }
+[data-theme="dark"][data-accent="teal"]   { --color-steel-highlight: #2dd4bf; }
+[data-theme="dark"][data-accent="amber"]  { --color-steel-highlight: #fbbf24; }
+[data-theme="dark"][data-accent="rose"]   { --color-steel-highlight: #fb7185; }
+
+/* Font scale multiplies the root size, so every rem-based utility
+   scales at once. */
+html {
+  font-size: calc(16px * var(--font-scale, 1));
+}
+
+/* Density touches vertical rhythm only. A density switch that also
+   changed horizontal padding and type sizes would be a second theme
+   in disguise, with a much larger visual-regression surface. */
+:root { --row-pad: 0.75rem; }
+[data-density="compact"] { --row-pad: 0.5rem; }
+
 @keyframes glowSlow {
   0%,
   100% {
