@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { AlertTriangle, Download, Lock } from "lucide-react";
 import { downloadExport, type ExportError } from "../../../lib/api";
 import { SectionHeader } from "../controls/SectionHeader";
@@ -86,6 +86,7 @@ export function DataPanel({
   locked: Record<string, string | number | boolean>;
   onDeleteAllSessions: () => Promise<void>;
 }) {
+  const confirmInputId = useId();
   const [confirmText, setConfirmText] = useState("");
   const [clearing, setClearing] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -256,14 +257,26 @@ export function DataPanel({
               Export first if you want a copy.
             </p>
           )}
+          {/* A visible label, not just a placeholder: this is the only
+              on-screen instruction for an irreversible delete, and a
+              placeholder disappears the moment the user starts typing —
+              exactly when they are checking what they typed. The
+              placeholder is kept as a secondary, in-field echo of the same
+              word, so it needs to hold contrast too, not just decorate. */}
+          <label
+            htmlFor={confirmInputId}
+            className="block text-[11px] font-medium text-steel-dark"
+          >
+            Type <span className="font-mono">{CONFIRM_WORD}</span> to confirm
+          </label>
           <input
+            id={confirmInputId}
             value={confirmText}
             onChange={(event) => setConfirmText(event.target.value)}
-            placeholder={`Type ${CONFIRM_WORD} to confirm`}
-            aria-label={`Type ${CONFIRM_WORD} to confirm clearing all sessions`}
+            placeholder={CONFIRM_WORD}
             autoComplete="off"
             spellCheck={false}
-            className="w-full text-xs bg-navy-900 border border-navy-700/40 rounded-lg px-2.5 py-1.5 text-steel-dark placeholder:text-steel/50"
+            className="w-full text-xs bg-navy-900 border border-navy-700/40 rounded-lg px-2.5 py-1.5 text-steel-dark placeholder:text-steel"
           />
           <button
             type="button"

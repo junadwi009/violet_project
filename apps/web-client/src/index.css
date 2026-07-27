@@ -56,7 +56,7 @@
 /* Semantic status colors, so components stop reaching for raw
    Tailwind palette entries that cannot follow the theme. */
 :root {
-  --color-success: #059669;
+  --color-success: #047857;
   --color-warning: #d97706;
   --color-danger: #b91c1c;
 }
@@ -69,8 +69,17 @@
    text against the card surface it is used on: light #b91c1c on
    --color-navy-800 #ffffff is 6.47:1; dark #f87171 on #241d31 is 5.86:1.
    Both clear AA. It is deliberately NOT used as a solid fill behind white
-   text — `#fbbf24`/`#f87171` under `text-white` computes near 1.5:1, which
-   is the exact failure mode the rest of this file is being swept for. */
+   text — `#fbbf24`/`#f87171` under `text-white` computes 1.67:1 (light) and
+   2.77:1 (dark) — both fail badly, which is the exact failure mode the rest
+   of this file is being swept for.
+
+   --color-success is text-only too, and is checked against both surfaces it
+   can sit on (page --color-navy-950, card --color-navy-800), worse one
+   quoted: light #047857 is 5.03:1 on navy-950 / 5.48:1 on navy-800; dark
+   #34d399 is 9.75:1 on navy-950 / 8.43:1 on navy-800. All clear AA. The
+   original light value #059669 (Tailwind emerald-600) measured 3.46:1 on
+   navy-950 — it had never been rendered by any component until DataPanel
+   became this token's first consumer, so the failure was latent. */
 
 /* Accent — one hue per theme. The accent is used for link and button *text*,
    not only for fills, so every hue is measured against BOTH surfaces it can

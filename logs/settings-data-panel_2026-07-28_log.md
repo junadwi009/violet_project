@@ -123,3 +123,80 @@ left for Task 17.
   tasks' scratch conversations). Pre-clear copies exist as the exported JSON in the user's
   Downloads folder and a `violet.db` snapshot in this session's scratchpad, if anyone
   wants them back; otherwise both can be deleted.
+
+---
+
+## Fix pass — review findings (same day)
+
+A review of Task 15 found two Important contrast defects the original sweep missed, plus
+inaccuracies in `task-15-report.md`'s contrast claims. The export taxonomy, danger-zone
+coupling, inline confirmation, and destructive wiring were all verified correct and were
+**not** touched.
+
+### What
+
+1. **Confirmation placeholder sub-AA + sole visible instruction.**
+   `placeholder:text-steel/50` on the danger-zone confirmation input measured 2.25:1 light /
+   3.00:1 dark (real rendered color: steel alpha-blended over `bg-navy-900`, not the nominal
+   token value), and there was no visible `<label>` — the placeholder was the only on-screen
+   statement of the word that arms an irreversible delete. Fixed two ways: added a real
+   `<label>` wired via `useId()`/`htmlFor` (so the instruction survives once the user starts
+   typing, which a placeholder cannot), and dropped the placeholder itself to full-opacity
+   `placeholder:text-steel` (6.62:1 light / 8.10:1 dark) as a second layer.
+2. **`--color-success` failed AA in light mode.** `DataPanel`'s export-success line is the
+   token's only consumer anywhere in the codebase (confirmed by grep), so the light value
+   had never actually been rendered. Measured 3.46:1 against the page background
+   (`--color-navy-950`) / 3.77:1 against the card (`--color-navy-800`) — both fail. Fixed at
+   the token in `index.css` (`#059669` → `#047857`, Tailwind emerald-600 → emerald-700),
+   not the call site, so every future consumer inherits a passing value. New ratios:
+   5.03:1 / 5.48:1 light, dark unchanged at 9.75:1 / 8.43:1 (already fine).
+3. **Report correction, no code.** `task-15-report.md` claimed "every string this panel
+   introduces clears AA 4.5:1 in both themes." False, per the two items above. Corrected in
+   place (append, not silent rewrite) with the root cause: the original sweep used
+   `querySelectorAll` + `getComputedStyle`, which cannot see `::placeholder` (not a DOM
+   node), and its contrast section was explicitly dark-mode-only, so the light-mode success
+   string was never measured. Also corrected concern #3's `SectionHeader` figure, which
+   recorded only 4.42:1 dark and omitted 3.67:1 light (the worse, inherited number).
+
+### Why
+
+Both defects share a root cause: the original in-page sweep (`querySelectorAll` +
+`getComputedStyle`, dark-mode pass) is structurally blind to `::placeholder` pseudo-elements
+and was never re-run in light mode. Neither is a logic defect — both are presentation-only,
+which is why the fix path was CSS/markup, and why the export/delete logic underneath
+(previously verified) needed no changes.
+
+### Files touched
+
+- `apps/web-client/src/components/settings/panels/DataPanel.tsx` — visible `<label>` for the
+  confirmation input (`useId()`-linked), placeholder opacity fix, `aria-label` removed
+  (redundant once a real label exists)
+- `apps/web-client/src/index.css` — `--color-success` light value `#059669` → `#047857`;
+  updated the semantic-token comment block with corrected `--color-warning` figures
+  (1.67:1 / 2.77:1, not "~1.5:1") and the new `--color-success` measurements
+- `.superpowers/sdd/task-15-report.md` — correction appended under the false claim, concern
+  #3 figure corrected, new `## Fix pass` section with full before/after ratios
+
+### Track
+
+1 Chat (same as original — settings dialog)
+
+### Status
+
+done
+
+### Verification
+
+`cd apps/web-client && npm run build` → `tsc -b && vite build`, no TypeScript errors, no
+Vite errors, same pre-existing 500 kB chunk-size advisory. No frontend test runner exists
+for this package. No backend server started — both fixes are CSS/markup-only and were
+verified by direct hex-value contrast computation against the tokens actually in
+`index.css`, so `data/violet.db` was never touched. `data/preferences.json` unmodified
+(confirmed via `git status`; only `DataPanel.tsx` and `index.css` show as changed pre-commit).
+
+### Next
+
+- Task 17's sweep should add a `::placeholder`-aware check (can't be done via
+  `getComputedStyle` on the input itself; needs either a manual pass or reading the
+  stylesheet rule directly) and should run its contrast pass in both themes, not dark-only,
+  to avoid repeating this exact miss.
