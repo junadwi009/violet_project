@@ -237,7 +237,7 @@ def test_vision_ocr_uses_resolver_for_vision_model(tmp_path, settings, monkeypat
 
 
 def test_create_app_wires_the_resolver(tmp_path, monkeypatch):
-    """Pins the four ``resolver=model_resolver`` arguments in ``main.create_app``.
+    """Pins the five ``resolver=model_resolver`` arguments in ``main.create_app``.
 
     repo_root is tmp_path so the app reads a throwaway ``data/preferences.json``
     instead of the developer's real one; only the migration SQL is copied in.
@@ -256,7 +256,7 @@ def test_create_app_wires_the_resolver(tmp_path, monkeypatch):
         )
         shutil.copy(source, migrations / name)
 
-    # Every branch that holds a model id must be live for this to pin all four sites.
+    # Every branch that holds a model id must be live for this to pin all five sites.
     settings = replace(
         load_settings(tmp_path),
         repo_root=tmp_path,
@@ -282,6 +282,7 @@ def test_create_app_wires_the_resolver(tmp_path, monkeypatch):
         ("skill_engine", "SkillEngine"),
         ("agent_registry", "AgentRegistry"),
         ("vision", "VisionOCR"),
+        ("chat_orchestrator", "ChatOrchestrator"),
     ):
         monkeypatch.setattr(main_module, attr, _recording(name, getattr(main_module, attr)))
 
@@ -295,6 +296,7 @@ def test_create_app_wires_the_resolver(tmp_path, monkeypatch):
             "artifact_model": "live/artifact",
             "agent_default_model": "live/agent",
             "vision_model": "live/vision",
+            "llm_model": "live/llm",
         }
     )
 
@@ -303,6 +305,7 @@ def test_create_app_wires_the_resolver(tmp_path, monkeypatch):
         ("skill_engine", "artifact_model", "live/artifact"),
         ("agent_registry", "agent_default_model", "live/agent"),
         ("vision", "vision_model", "live/vision"),
+        ("chat_orchestrator", "llm_model", "live/llm"),
     ):
         resolver = captured.get(name)
         assert resolver is not None, f"create_app did not pass a resolver to {name}"

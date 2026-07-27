@@ -659,3 +659,98 @@ untouched.
 - None outstanding from this fix. The remaining open item from Task 13's log
   (Task 17's dark-mode contrast sweep) is unrelated to this backend-only
   change.
+
+---
+
+# Fix pass — pin the fifth `resolver=model_resolver` site (`ChatOrchestrator`) in the wiring test
+
+- **Date:** 2026-07-27
+- **Track:** cross-cutting (backend preferences / test coverage)
+- **Branch:** feat/settings-overhaul
+- **Author:** Claude Code (follow-up to the Task 13 review fix)
+
+## What
+The previous entry threaded `resolver=model_resolver` into `ChatOrchestrator`
+in `main.py`, but `test_model_resolver.py::test_create_app_wires_the_resolver`
+— the test whose own docstring says it exists so this exact threading "is
+[not] invisible to the suite and can be reverted silently" — was never
+extended to cover it. It still only recorded and asserted on four
+construction sites (`CascadeResponder`, `SkillEngine`, `AgentRegistry`,
+`VisionOCR`). A reviewer proved the gap: deleting `resolver=model_resolver,`
+from the `ChatOrchestrator(...)` call in `main.py` left the full 306-test
+suite green.
+
+Added `ChatOrchestrator` as a fifth entry to the test's `_recording` monkeypatch
+tuple and its assertion loop, asserting the captured resolver resolves
+`llm_model` to a `prefs.patch`-applied override (`"live/llm"`), matching the
+test's existing idiom for the other four keys.
+
+## Why
+Coverage gap, not a production bug: `main.py` already had the line (added in
+the prior fix pass). Without a pinning assertion, a future edit to the
+`ChatOrchestrator(...)` call site could silently drop the resolver argument —
+reintroducing the exact `model=""` / dead-default-fallback hazard the prior
+fix pass closed — and the suite would stay green.
+
+## Files touched
+- mod `services/assistant-core/tests/test_model_resolver.py` —
+  `test_create_app_wires_the_resolver`: added `("chat_orchestrator",
+  "ChatOrchestrator")` to the monkeypatch tuple, `"llm_model": "live/llm"` to
+  the `prefs.patch(...)` call, and `("chat_orchestrator", "llm_model",
+  "live/llm")` to the assertion loop; docstring/comment counts updated
+  four→five. No other line changed; the five keys/sites already pinned
+  (`persona_model`, `artifact_model`, `agent_default_model`, `vision_model`,
+  and now `llm_model`) are untouched. No production code touched.
+
+## Interfaces / contracts changed
+None. Test-only change.
+
+## Status
+done
+
+## Verification
+Ran from repo root with the **system interpreter**
+(`C:\Users\arjuna.putranto\anaconda3\python.exe`; repo `.venv` lacks
+`httpx`/`pytest-asyncio`, not touched). `.tmp/pytest` basetemp dir created
+(not committed).
+
+Full suite:
+```
+python -m pytest -q
+```
+→ **306 passed**, 237 warnings (pre-existing `on_event`/httpx deprecation
+noise, unrelated), ~90s. Count unchanged from the prior 306 baseline — this
+extended an existing test, it did not add a new one.
+
+### Mutation check (the standard on this branch)
+1. Deleted `resolver=model_resolver,` from the `ChatOrchestrator(...)` call in
+   `main.py` (the exact mutation the task described). Reran the extended test:
+   ```
+   python -m pytest services/assistant-core/tests/test_model_resolver.py::test_create_app_wires_the_resolver -q
+   ```
+   → **1 failed** — `AssertionError: create_app did not pass a resolver to
+   chat_orchestrator`. Confirms the extension closes the gap.
+2. Restored the line, reran the same test → **1 passed**.
+3. Spot-checked that the four pre-existing sites still discriminate: stripped
+   `resolver=model_resolver` from each of `CascadeResponder`, `SkillEngine`,
+   `AgentRegistry`, `VisionOCR` in `main.py` one at a time (restoring before
+   moving to the next), rerunning
+   `test_create_app_wires_the_resolver` after each. All four still produced
+   **1 failed** individually — none had been weakened by the edit.
+4. `git diff --stat services/assistant-core/src/violet_assistant/main.py`
+   showed no diff after all mutations were restored — production code ended
+   exactly where it started.
+
+Full suite reran once more after all restorations to confirm nothing was left
+mutated:
+```
+python -m pytest -q
+```
+→ **306 passed** again.
+
+`data/preferences.json` untouched (still `{"ui_mode": "developer"}`, no
+server was run this pass); real `.env` untouched; confirmed via
+`git status --short` showing only `test_model_resolver.py` modified.
+
+## Next
+None outstanding from this pass.
