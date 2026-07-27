@@ -32,6 +32,7 @@ from violet_assistant.vector.store.sqlite_vector_store import SqliteVectorStore
 from violet_assistant.routes.skills import create_skills_router
 from violet_assistant.routes.upload import create_upload_router
 from violet_assistant.preferences.store import PreferencesStore
+from violet_assistant.preferences.resolver import ModelResolver
 from violet_assistant.ingestion.ocr import VisionOCR
 from violet_assistant.llm.openai_compatible_provider import OpenAICompatibleProvider
 from violet_assistant.skills.generator import SkillEngine
@@ -57,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         migrate_sqlite_memories_to_files(store, memory_store)
 
     preferences = PreferencesStore(active_settings.repo_root / "data" / "preferences.json")
+    model_resolver = ModelResolver(preferences, active_settings)
 
     personality_loader = PersonalityLoader(active_settings.personality_config_dir)
     provider = create_llm_provider(active_settings)
@@ -112,6 +114,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             persona=persona,
             technical=technical,
             timeout_seconds=active_settings.llm_timeout_seconds,
+            resolver=model_resolver,
         )
 
     # Skills / artifacts (active when an artifact model key is configured).
@@ -128,6 +131,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 timeout_seconds=active_settings.llm_timeout_seconds,
             ),
             model=active_settings.artifact_model,
+            resolver=model_resolver,
         )
 
     # Web search (active when an OpenRouter-compatible key is configured).
@@ -161,7 +165,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         active_settings.repo_root / "configs" / "agents"
     )
     agent_registry = AgentRegistry(
-        agents_dir, default_model=active_settings.agent_default_model
+        agents_dir,
+        default_model=active_settings.agent_default_model,
+        resolver=model_resolver,
     )
     agent_runner = None
     if active_settings.agent_api_key:
@@ -204,6 +210,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             api_key=active_settings.vision_api_key,
             model=active_settings.vision_model,
             timeout_seconds=active_settings.llm_timeout_seconds,
+            resolver=model_resolver,
         )
 
     app = FastAPI(title="Violet Assistant Core", version="0.1.0")

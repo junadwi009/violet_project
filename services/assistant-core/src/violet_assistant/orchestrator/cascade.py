@@ -76,13 +76,25 @@ class CascadeResponder:
         technical: LayerConfig,
         timeout_seconds: float = 120,
         provider_factory=None,
+        resolver=None,
     ) -> None:
         self.persona = persona
         self.technical = technical
         self._make = provider_factory or self._default_provider_factory
         self.timeout_seconds = timeout_seconds
+        self._resolver = resolver
         self._persona_provider = self._make(persona)
         self._technical_provider = self._make(technical)
+
+    def _persona_model(self) -> str:
+        if self._resolver is None:
+            return self.persona.model
+        return self._resolver.resolve("persona_model")
+
+    def _technical_model(self) -> str:
+        if self._resolver is None:
+            return self.technical.model
+        return self._resolver.resolve("technical_model")
 
     def _default_provider_factory(self, layer: LayerConfig) -> LLMProvider:
         return OpenAICompatibleProvider(
@@ -95,10 +107,14 @@ class CascadeResponder:
     async def respond(
         self, messages: Sequence[Message], base_options: LLMOptions
     ) -> CascadeResult:
+        # Bound once per turn: a mid-turn preference edit must not make the three
+        # persona calls in this turn disagree with each other.
+        persona_model = self._persona_model()
+        technical_model = self._technical_model()
         persona_messages = self._with_delegation_instruction(messages)
         first = await self._persona_provider.chat(
             persona_messages,
-            LLMOptions(model=self.persona.model, temperature=base_options.temperature),
+            LLMOptions(model=persona_model, temperature=base_options.temperature),
         )
 
         subtask = self._delegation_subtask(first.text)
@@ -107,7 +123,7 @@ class CascadeResponder:
                 text=first.text,
                 emotion=first.emotion,
                 delegated=False,
-                models_used=[self.persona.model],
+                models_used=[persona_model],
             )
 
         technical = await self._technical_provider.chat(
@@ -115,7 +131,7 @@ class CascadeResponder:
                 Message(role="system", content=_TECHNICAL_SYSTEM),
                 Message(role="user", content=subtask),
             ],
-            LLMOptions(model=self.technical.model, temperature=0.0),
+            LLMOptions(model=technical_model, temperature=0.0),
         )
 
         composed = await self._persona_provider.chat(
@@ -130,13 +146,13 @@ class CascadeResponder:
                     ),
                 ),
             ],
-            LLMOptions(model=self.persona.model, temperature=base_options.temperature),
+            LLMOptions(model=persona_model, temperature=base_options.temperature),
         )
         return CascadeResult(
             text=composed.text,
             emotion=composed.emotion,
             delegated=True,
-            models_used=[self.persona.model, self.technical.model, self.persona.model],
+            models_used=[persona_model, technical_model, persona_model],
         )
 
     @staticmethod

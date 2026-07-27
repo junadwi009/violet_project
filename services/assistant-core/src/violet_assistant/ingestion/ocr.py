@@ -30,12 +30,23 @@ class VisionOCR:
     """OCR via an OpenRouter vision model (default qwen/qwen3-vl-32b-instruct)."""
 
     def __init__(
-        self, base_url: str, api_key: str, model: str, timeout_seconds: float = 120
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        timeout_seconds: float = 120,
+        resolver=None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self._resolver = resolver
+
+    def _effective_model(self) -> str:
+        if self._resolver is None:
+            return self.model
+        return self._resolver.resolve("vision_model")
 
     async def ocr(self, data: bytes, mime: str) -> str:
         return await asyncio.to_thread(self._ocr_sync, data, mime)
@@ -43,7 +54,10 @@ class VisionOCR:
     def _ocr_sync(self, data: bytes, mime: str) -> str:
         data_url = f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
         payload = {
-            "model": self.model,
+            # VisionOCR builds a raw request body rather than LLMOptions, so the
+            # resolved id goes straight into the payload. Read here (in the worker
+            # thread) so the preferences file read never blocks the event loop.
+            "model": self._effective_model(),
             "messages": [
                 {
                     "role": "user",

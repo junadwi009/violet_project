@@ -89,9 +89,15 @@ def _render_file_artifacts(artifacts: list[dict], skill_name: str) -> None:
 class SkillEngine:
     """Generates renderable artifacts for a matched skill using the artifact (coding) model."""
 
-    def __init__(self, provider: LLMProvider, model: str) -> None:
+    def __init__(self, provider: LLMProvider, model: str, resolver=None) -> None:
         self.provider = provider
         self.model = model
+        self._resolver = resolver
+
+    def _effective_model(self) -> str:
+        if self._resolver is None:
+            return self.model
+        return self._resolver.resolve("artifact_model")
 
     async def generate(self, skill: Skill, user_content: str) -> tuple[str, list[dict]]:
         response = await self.provider.chat(
@@ -99,7 +105,7 @@ class SkillEngine:
                 Message(role="system", content=skill.prompt),
                 Message(role="user", content=user_content),
             ],
-            LLMOptions(model=self.model, temperature=0.2),
+            LLMOptions(model=self._effective_model(), temperature=0.2),
         )
         intro, artifacts = parse_artifacts(response.text)
         if not artifacts:

@@ -9,10 +9,19 @@ from violet_assistant.agents.skillmd import parse_skill_md
 
 class AgentRegistry:
     def __init__(
-        self, config_dir: Path, default_model: str = "nousresearch/hermes-4-70b"
+        self,
+        config_dir: Path,
+        default_model: str = "nousresearch/hermes-4-70b",
+        resolver=None,
     ) -> None:
         self.config_dir = config_dir
         self.default_model = default_model
+        self._resolver = resolver
+
+    def _effective_default_model(self) -> str:
+        if self._resolver is None:
+            return self.default_model
+        return self._resolver.resolve("agent_default_model")
 
     def list_agents(self) -> list[Agent]:
         if not self.config_dir.exists():
@@ -25,13 +34,15 @@ class AgentRegistry:
             except (ValueError, KeyError):
                 continue
         # Imported Anthropic-format skills: any SKILL.md under the agents dir (e.g. imported/<name>/SKILL.md).
+        # Resolved once per listing so every skill in one listing agrees on the default.
+        default_model = self._effective_default_model()
         for path in sorted(self.config_dir.rglob("SKILL.md")):
             try:
                 agents.append(
                     parse_skill_md(
                         path.read_text(encoding="utf-8"),
                         fallback_id=path.parent.name,
-                        default_model=self.default_model,
+                        default_model=default_model,
                     )
                 )
             except (ValueError, KeyError):
