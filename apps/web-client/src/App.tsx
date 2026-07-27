@@ -136,15 +136,17 @@ export function App() {
 
   const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer>>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  // The composer's speak toggle is session-local state, but it should start
-  // from the persisted `auto_speak` preference rather than always defaulting
-  // to off — otherwise a user who turned auto-speak on in Settings would see
-  // the composer button lie ("Enable speech output") while replies spoke
-  // anyway (the old `speechOutputEnabled || auto_speak` OR at the send site
-  // papered over exactly that). Seed once, the first time settings arrive, so
-  // a deliberate mid-session tap on the button is never clobbered by a later
-  // settings refresh (e.g. after a group reset).
-  const speechOutputSeededRef = useRef(false);
+  // The composer's speak toggle is session-local state, but it should track
+  // the persisted `auto_speak` preference rather than always defaulting to
+  // off (or freezing at whatever it was on first load) — otherwise a user
+  // who turns auto-speak on in Settings, without ever touching the composer
+  // button, sees the button keep lying ("Enable speech output") while
+  // replies still don't speak. So `speechOutputEnabled` keeps following
+  // `auto_speak` on every settings refresh until the user *deliberately taps
+  // the composer button* — this ref records that tap (set in
+  // `handleSpeechOutputToggle`), and once it's true a later settings refresh
+  // (e.g. after a group reset) never clobbers the user's explicit choice.
+  const speechOutputTappedRef = useRef(false);
 
   const speechInputAvailable = canRecognizeSpeech();
   const speechOutputAvailable = canSpeak();
@@ -256,8 +258,7 @@ export function App() {
   }, [appSettings]);
 
   useEffect(() => {
-    if (!appSettings || speechOutputSeededRef.current) return;
-    speechOutputSeededRef.current = true;
+    if (!appSettings || speechOutputTappedRef.current) return;
     setSpeechOutputEnabled(appSettings.values.auto_speak === true);
   }, [appSettings]);
 
@@ -316,10 +317,11 @@ export function App() {
       ]);
 
       // `speechOutputEnabled` is the single source of truth for whether this
-      // reply gets spoken. It starts seeded from the persisted `auto_speak`
-      // preference (see the effect above) and the composer button is the
-      // only thing that can change it afterward — so the button's label/icon
-      // and actual speak-or-not behavior always agree, in both directions.
+      // reply gets spoken. It tracks the persisted `auto_speak` preference
+      // (see the effect above) until the user deliberately taps the composer
+      // button, at which point that tap wins over later settings refreshes —
+      // so the button's label/icon and actual speak-or-not behavior always
+      // agree, in both directions.
       if (speechOutputEnabled) {
         setAvatarState("speaking");
         speakText(response.text, voiceSettingsFromValues(appSettings), () =>
@@ -429,6 +431,7 @@ export function App() {
   }
 
   function handleSpeechOutputToggle() {
+    speechOutputTappedRef.current = true;
     if (speechOutputEnabled) {
       stopSpeaking();
       setSpeechOutputEnabled(false);

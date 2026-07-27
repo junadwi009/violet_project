@@ -185,3 +185,109 @@ done
 
 ### Next
 - None outstanding from this review pass.
+
+---
+
+## Fix pass 2 (2026-07-28, same day)
+
+### What
+Fixed a mirrored regression the reviewer found in "Fix pass" above, plus two
+MINOR copy/layout follow-ups in `VoicePanel.tsx`.
+
+### Why
+The "Fix pass" change seeded `speechOutputEnabled` from `auto_speak` once,
+guarded by `speechOutputSeededRef` ("have we seeded yet"), instead of "has the
+user deliberately tapped the composer button" as its own comment claimed.
+Every user who opens Settings → Voice and enables "Speak replies
+automatically" without ever touching the composer button first (the normal
+discovery path) saw the toggle flip to `true`, the server persist it, but the
+composer button and actual speak-on-reply behavior never move — the same
+class of defect (a control that lies) the original Task 14 finding was about,
+just relocated from the composer button to the Settings toggle. Also: the
+`!canSpeak()` copy still said "the ... settings **below** would have no
+effect" even though nothing relevant renders below that branch anymore
+(reviewer finding 2), and the Language field — hoisted outside the
+synthesis gate — landed between the auto-speak toggle and Test voice, visually
+separated from the Voice select it belongs with (reviewer finding 3).
+
+### Files touched
+- `apps/web-client/src/App.tsx`:
+  - Renamed `speechOutputSeededRef` → `speechOutputTappedRef`; it now means
+    "the user deliberately tapped the composer button," matching its
+    original comment's stated intent.
+  - The seeding effect (`if (!appSettings || speechOutputTappedRef.current)
+    return; setSpeechOutputEnabled(appSettings.values.auto_speak === true);`)
+    no longer sets the ref — so it keeps following `auto_speak` on every
+    settings refresh until a tap happens, not just once.
+  - `handleSpeechOutputToggle` now sets `speechOutputTappedRef.current = true`
+    as its first line, so a deliberate tap (in either direction) permanently
+    stops the effect from overriding session-local state afterward.
+  - Updated the two comments describing this mechanism to match (ref
+    declaration + the comment above the `speechOutputEnabled` check in
+    `send()`).
+- `apps/web-client/src/components/settings/panels/VoicePanel.tsx`:
+  - Unsupported-browser copy: dropped "below" and the "voice, rate, pitch,
+    and auto-speak settings **below**" phrasing now just reads "...so the
+    voice, rate, pitch, and auto-speak settings would have no effect."
+  - Moved the `TextRow` "Language" block up, immediately after the Voice
+    `<select>` (both already outside the `!canSpeak()` gate), and moved
+    Rate/Pitch/the auto-speak `ToggleRow` into their own
+    `{!synthesisUnavailable && (...)}` block below it. Order is now: Voice
+    select → Language → Rate → Pitch → auto-speak toggle → Test voice.
+    Also dropped a now-single-child `<>...</>` fragment left around the
+    Voice select div.
+
+### Interfaces / contracts changed
+none — internal ref semantics and JSX order only.
+
+### Status
+done
+
+### Verification
+- `cd apps/web-client && npm run build` → `tsc -b && vite build` — PASS,
+  `✓ built in 15.45s`, no TypeScript errors.
+- Live app (backend `LLM_PROVIDER=mock` on :8000 via `uvicorn`, Vite dev
+  server on :5173 via the preview harness, `vite.config.ts`'s
+  `strictPort: true` honored), driven through the real UI, instrumented
+  `window.speechSynthesis.speak` (audio not capturable in this environment;
+  asserted on `SpeechSynthesisUtterance` fields and call count instead),
+  settings read back via `GET /api/settings`:
+  - **Never-tapped, toggle `auto_speak` ON in Settings** — composer button
+    flipped `"Enable speech output"` → `"Disable speech output"`
+    immediately, no reload; next reply produced exactly 1 `speak()` call.
+  - **Never-tapped, toggle `auto_speak` OFF again** — button flipped back
+    to `"Enable speech output"`; next reply produced 0 `speak()` calls.
+  - **Deliberate tap ON, then a Voice-section Reset flipping `auto_speak`
+    true→false** — composer button stayed `"Disable speech output"`
+    through the reset; next reply still produced exactly 1 `speak()` call.
+  - **Deliberate tap OFF while `auto_speak` is true (server-side)** —
+    button stayed `"Enable speech output"` across two consecutive replies,
+    0 `speak()` calls both times.
+  - **`auto_speak: false` throughout, fresh/never-tapped session** — button
+    started `"Enable speech output"`, a deliberate tap flipped it and the
+    next reply spoke (1 call), a second deliberate tap turned it back off
+    and the following reply did not speak (0 calls) — matches pre-Task-14
+    baseline behavior.
+  - Reviewer findings 2/3 — with `window.speechSynthesis` and
+    `window.SpeechSynthesisUtterance` deleted (forcing `!canSpeak()`),
+    reopened Settings → Voice: copy no longer references "below"; layout
+    is Voice section header → warning paragraph → Language field (still
+    editable — confirmed a real-keystroke edit of `voice_lang` persisted
+    via `GET /api/settings`) → nothing else (Reset section still present
+    and enabled). With synthesis available, layout is Voice select →
+    Language → Rate → Pitch → auto-speak toggle → Test voice, so Language
+    now sits with the Voice select instead of between the toggle and Test
+    voice.
+  - Did not re-verify the five write channels / `voiceschanged` balance /
+    contrast / accessible name / lazy `useState` items beyond confirming
+    this pass didn't touch that code — no regression expected since only
+    JSX order and a comment/ref rename changed around them.
+  - `data/preferences.json` was mutated during testing (`auto_speak`,
+    `voice_lang` via UI and direct API PATCHes) and restored to
+    `{"ui_mode": "developer"}` afterward, verified by reading it back. Did
+    not touch the real `.env`. Stopped the Vite dev server
+    (`preview_stop`) and killed the `uvicorn` backend by PID; confirmed
+    `/health` no longer responds.
+
+### Next
+- None outstanding from this review pass.

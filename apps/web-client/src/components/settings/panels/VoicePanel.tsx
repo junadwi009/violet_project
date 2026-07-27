@@ -78,49 +78,69 @@ export function VoicePanel({
       {synthesisUnavailable && (
         <p className="text-xs text-steel/70">
           This browser does not support speech synthesis, so the voice,
-          rate, pitch, and auto-speak settings below would have no effect.
-          Try a Chromium-based browser. Language is still used for speech
-          input if this browser supports that.
+          rate, pitch, and auto-speak settings would have no effect. Try a
+          Chromium-based browser. Language is still used for speech input if
+          this browser supports that.
         </p>
       )}
 
       {!synthesisUnavailable && (
-        <>
-          <div>
-            <label
-              htmlFor={selectId}
-              className="block text-xs font-medium text-steel-dark mb-1"
+        <div>
+          <label
+            htmlFor={selectId}
+            className="block text-xs font-medium text-steel-dark mb-1"
+          >
+            Voice
+          </label>
+          {/* Click-driven and rendered straight from `values` — patch
+              immediately, same as `ToggleRow` below. See the `patchNow` vs
+              `patchDebounced` note on `PanelProps`. */}
+          <select
+            id={selectId}
+            value={voiceName}
+            onChange={(event) => patchNow({ voice_name: event.target.value })}
+            aria-describedby={missing ? missingId : undefined}
+            className="w-full text-xs bg-navy-800 border border-navy-700/20 rounded-lg px-2.5 py-1.5 text-steel-dark focus:outline-none focus:ring-1 focus:ring-steel-highlight/30"
+          >
+            <option value="">Browser default</option>
+            {voices.map((voice) => (
+              <option key={voice.name} value={voice.name}>
+                {voice.name} ({voice.lang})
+              </option>
+            ))}
+          </select>
+          {missing && (
+            <p
+              id={missingId}
+              className="text-[11px] text-[color:var(--color-warning)] mt-1"
             >
-              Voice
-            </label>
-            {/* Click-driven and rendered straight from `values` — patch
-                immediately, same as `ToggleRow` below. See the `patchNow` vs
-                `patchDebounced` note on `PanelProps`. */}
-            <select
-              id={selectId}
-              value={voiceName}
-              onChange={(event) => patchNow({ voice_name: event.target.value })}
-              aria-describedby={missing ? missingId : undefined}
-              className="w-full text-xs bg-navy-800 border border-navy-700/20 rounded-lg px-2.5 py-1.5 text-steel-dark focus:outline-none focus:ring-1 focus:ring-steel-highlight/30"
-            >
-              <option value="">Browser default</option>
-              {voices.map((voice) => (
-                <option key={voice.name} value={voice.name}>
-                  {voice.name} ({voice.lang})
-                </option>
-              ))}
-            </select>
-            {missing && (
-              <p
-                id={missingId}
-                className="text-[11px] text-[color:var(--color-warning)] mt-1"
-              >
-                "{voiceName}" is not available in this browser. The default
-                voice is being used instead.
-              </p>
-            )}
-          </div>
+              "{voiceName}" is not available in this browser. The default
+              voice is being used instead.
+            </p>
+          )}
+        </div>
+      )}
 
+      {/* Holds its own local state and fires on every keystroke — debounce.
+          Kept outside the synthesis gate: it also drives speech *input*
+          (`createSpeechRecognizer`'s `lang`), which is a separate capability
+          gated by `canRecognizeSpeech()`, not `canSpeak()`. Placed with the
+          Voice select (both outside the gate) rather than after the
+          auto-speak toggle, which belongs with the synthesis-only controls
+          below. */}
+      <TextRow
+        label="Language"
+        value={String(values.voice_lang ?? "")}
+        placeholder="id-ID"
+        hint="BCP-47 tag, e.g. id-ID or en-US. Also used for speech input."
+        onChange={(voice_lang) => {
+          setLiveLang(voice_lang);
+          patchDebounced({ voice_lang });
+        }}
+      />
+
+      {!synthesisUnavailable && (
+        <>
           <SliderRow
             label="Rate"
             value={current.rate}
@@ -152,21 +172,6 @@ export function VoicePanel({
           />
         </>
       )}
-
-      {/* Holds its own local state and fires on every keystroke — debounce.
-          Kept outside the synthesis gate: it also drives speech *input*
-          (`createSpeechRecognizer`'s `lang`), which is a separate capability
-          gated by `canRecognizeSpeech()`, not `canSpeak()`. */}
-      <TextRow
-        label="Language"
-        value={String(values.voice_lang ?? "")}
-        placeholder="id-ID"
-        hint="BCP-47 tag, e.g. id-ID or en-US. Also used for speech input."
-        onChange={(voice_lang) => {
-          setLiveLang(voice_lang);
-          patchDebounced({ voice_lang });
-        }}
-      />
 
       {!synthesisUnavailable && (
         <button
