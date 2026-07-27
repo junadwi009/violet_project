@@ -16,8 +16,12 @@ export function SectionHeader({
       <div className="min-w-0">
         <h3 className="text-base font-semibold text-steel-dark flex items-center gap-2">
           {title}
+          {/* `role="img"`: ARIA does not allow naming a bare span (implicit
+              role `generic`), so `aria-label` on its own would be dropped and
+              the dot would carry no accessible name at all. */}
           {modified && (
             <span
+              role="img"
               title="Changed from defaults"
               aria-label="Changed from defaults"
               className="w-1.5 h-1.5 rounded-full bg-steel-highlight"

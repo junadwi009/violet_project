@@ -64,7 +64,18 @@ accessibility, or debounce behavior each time.
 - `apps/web-client/src/components/settings/controls/TextRow.tsx` — new.
 - `apps/web-client/src/components/settings/controls/SectionHeader.tsx` — new.
 
-No backend code touched in any of the three tasks. No new dependencies added
+### Backend
+
+One backend change *was* required inside this phase, contrary to an earlier version of
+this sentence which claimed none were. Commit `11549c2` modified
+`services/assistant-core/src/violet_assistant/main.py` to expose `Content-Disposition`
+to CORS clients on `/api/export`, and added `services/assistant-core/tests/test_cors.py`.
+It was necessary *because of* Task 8: `downloadExport()` parses `Content-Disposition` for
+the real filename, and a cross-origin browser client cannot read that header unless the
+server lists it in `Access-Control-Expose-Headers`. Frontend-only work in this phase does
+not otherwise touch backend code.
+
+No new dependencies added
 (`lucide-react` was already a dependency, used for icons in `SectionHeader` and
 `SettingsShell`). No test framework added — the frontend has none and this plan does
 not add one.
@@ -171,10 +182,12 @@ Task 10 shell/nav/controls, Task 12 and Task 16 are the first consumers of Task 
   clean and `main.tsx` has no diff):
   - `role="dialog"`, `aria-modal="true"`, `aria-labelledby="settings-title"` present on
     open; opening the dialog moves focus to the active `role="tab"` element.
-  - `role="tablist"` with `ArrowDown`/`ArrowUp` moving selection between tabs, including
-    wraparound at both ends of the list (confirmed: from the first item, ArrowUp lands on
-    the last; from the last, ArrowDown lands on the first), and the visible panel content
-    updates in sync with the selected tab.
+  - `role="tablist"` with `ArrowDown`/`ArrowUp` moving **selection** between tabs,
+    including wraparound at both ends of the list (confirmed: from the first item,
+    ArrowUp lands on the last; from the last, ArrowDown lands on the first), and the
+    visible panel content updates in sync with the selected tab. **This check did not
+    assert on `document.activeElement`, and as shipped DOM focus did *not* follow the
+    selection** — see the Task 10 fix pass below.
   - Focus trap: confirmed `Tab` from the last focusable element inside the dialog wraps
     to the first, and `Shift+Tab` from the first wraps to the last, **against two
     different panels with different focusable-element counts** (one panel with a single
@@ -204,3 +217,134 @@ components from Task 10, and against `theme.ts` from Task 9. Task 16 wires
 `bg-steel-dark text-white` call sites (white-on-white at 1.16:1, including the Composer
 Send button and the old Settings modal's Done button) and the modal-scrim inversion —
 both documented in the Task 9 report, neither touched by Phase C.
+
+---
+
+# Addendum — Task 10 fix pass (2026-07-27)
+
+## What
+
+Applied nine code-review findings against the Task 10 shell/nav/controls. Accessibility
+was the substantive requirement of Task 10 and is where most of them landed.
+
+- **C1** `SettingsNav` arrow keys moved `aria-selected` but never DOM focus — no
+  `.focus()` existed in the file. Added a tab-ref map and focus on every keyboard move,
+  plus `Home`/`End` (required by the WAI-ARIA APG tablist pattern).
+- **C2** `SettingsShell`'s focus effect was keyed `[open, onClose]` and its cleanup
+  unconditionally returned focus to the trigger. With an inline-arrow `onClose` (which is
+  what `App.tsx:700` passes) every parent render re-ran it, so saving a preference would
+  have ripped focus out of whatever the user was typing in. `onClose` now lives in a ref;
+  the effect depends on `[open]` alone.
+- **I5** `useDebouncedPatch` degraded to a no-op: `flush` was `useCallback(…, [patch])`
+  and `useEffect(() => flush, [flush])` therefore fired as a *render* cleanup whenever
+  `patch` was unstable. `patch`/`delayMs` moved to refs, `flush` stable with `[]`, unmount
+  cleanup only. Merge-by-key preserved and re-verified.
+- **I1** `TextRow` used `bg-white` with `text-steel-dark` — 1.16:1 in dark mode, i.e. the
+  user's own typing invisible, and invisible to Task 17's planned
+  `bg-steel-dark text-white` grep as well. Switched to the themed `bg-navy-800`
+  (17.91:1 light / 14.02:1 dark). Its `<label>` also had no `htmlFor`, so the input had no
+  accessible name; fixed with `useId`.
+- **I2** `SegmentedRow`'s selected pill went from `bg-steel-highlight/15
+  text-steel-highlight` (5 of 10 theme x accent combinations below AA, worst 3.65:1) to
+  `bg-navy-800 text-steel-highlight shadow-sm` — an opaque chip on the `steel-ice` track,
+  which reduces to accent-on-card. All 10 now pass, worst 5.02:1.
+- **I3** The `role="tablist"` promised a pattern it did not deliver. Added
+  `settings/ids.ts`, `id` + `aria-controls` on each tab, and a real `role="tabpanel"`
+  region on the shell's content wrapper. `SettingsShell` gains a required `activeTab`
+  prop so it can label that region.
+- **I4** `SegmentedRow`'s `radiogroup` had no roving tabindex and no arrow handler; both
+  implemented.
+- **I6** A drag started inside the panel and released on the backdrop closed the dialog.
+  Guarded with `event.target === event.currentTarget` plus a mousedown-origin check.
+- **Minor** `useId` for the dialog title (M3); `role="img"` on `SectionHeader`'s modified
+  dot, since ARIA does not permit naming a bare `generic` (M4); `aria-describedby` for
+  `ToggleRow`'s hint (M5); zero-visible-items and stale-`devOnly`-selection handling in
+  `SettingsNav`, including reclaiming focus the browser drops to `<body>` when the focused
+  tab is removed (M7); `[tabindex="-1"]` excluded from the focus trap's selector so its
+  first/last match the browser's real tab order (M2).
+
+Deliberately **not** fixed, per the review: I7 (11px secondary text, 2.94–4.38:1) and M1
+(off-toggle track, 1.11:1) are verbatim ports from `SettingsModal.tsx` and belong to Task
+17's contrast sweep; M6 (capture-phase Escape vs a nested dialog) and M8 (`setLocal`
+clobbering an in-flight edit when a debounced echo returns) are Task 11/15 integration
+hazards.
+
+One finding **not** in the review list, recorded for Task 17: `SettingsNav`'s active-tab
+tint `bg-steel-highlight/10` over `navy-800` measures 4.39:1 for light/amber — the same
+defect class as I2, below AA in 1 of 10 combinations. Left alone because the obvious
+substitutes do not clear it either (`bg-steel-ice` is 4.43; removing the tint reaches 5.02
+but loses the selected affordance), so it needs a design call rather than a token swap.
+
+## Why
+
+The Task 10 report claimed arrow keys "move both DOM focus and `aria-selected` together".
+They did not. The original check asserted on appearance, and appearance passes: the
+stale-focused button stays inside the `<nav>`, so repeat keydowns keep bubbling and the
+selection keeps cycling. A screen reader announces on focus change, so a tablist user
+heard nothing. That claim is retracted in place in `.superpowers/sdd/task-10-report.md`,
+and every focus assertion in this pass reads `document.activeElement` directly.
+
+## Files touched
+
+- `apps/web-client/src/components/settings/SettingsNav.tsx`
+- `apps/web-client/src/components/settings/SettingsShell.tsx`
+- `apps/web-client/src/components/settings/useDebouncedPatch.ts`
+- `apps/web-client/src/components/settings/ids.ts` (new)
+- `apps/web-client/src/components/settings/controls/SegmentedRow.tsx`
+- `apps/web-client/src/components/settings/controls/TextRow.tsx`
+- `apps/web-client/src/components/settings/controls/ToggleRow.tsx`
+- `apps/web-client/src/components/settings/controls/SectionHeader.tsx`
+- `.superpowers/sdd/task-10-report.md` (fix-pass section + retraction in place)
+- `logs/settings-frontend-foundation_2026-07-27_log.md` (this addendum + the backend
+  correction above)
+
+`components/SettingsModal.tsx` untouched. No backend code touched in this pass.
+
+## Track
+
+Cross-cutting (settings overhaul, Phase C fix pass).
+
+## Interfaces / contracts changed
+
+`SettingsShell` now takes a required `activeTab: string` prop — the selected
+`NavItem.id` — so it can give its content region `role="tabpanel"` with an
+`aria-labelledby` back to the matching tab. Task 11 must pass it. New module
+`settings/ids.ts` exports `settingsTabDomId` / `settingsPanelDomId`.
+
+## Verification
+
+`cd apps/web-client && npm run build` → PASS, `tsc -b` strict + `vite build`,
+`built in 11.31s`, 0 TS errors, run after the temporary harness was deleted and
+`main.tsx` reverted.
+
+Driven live in a browser on Vite `:5173`. `document.activeElement` after each real key
+press, starting from `settings-tab-general` in a 5-item nav:
+
+| key | `document.activeElement` after | matches `aria-selected` |
+|---|---|---|
+| `ArrowDown` | `settings-tab-appearance` | yes |
+| `ArrowUp` | `settings-tab-general` | yes |
+| `End` | `settings-tab-dev2` | yes |
+| `Home` | `settings-tab-general` | yes |
+| `ArrowUp` from first (wrap) | `settings-tab-dev2` | yes |
+
+C2 reproduced and confirmed fixed: with focus in a `TextRow` input, 6 forced parent
+re-renders left `document.activeElement` on the input every time and the caret unmoved;
+8 real keystrokes at 40ms (each re-rendering the parent, with the debounced PATCH landing
+300ms later) also held focus. I5: those 8 keystrokes produced 0 patches during typing and
+exactly 1 after settling; a radio change plus 5 slider steps in one window coalesced to
+`{"mode":"b","temperature":0.5}`. Full detail, including the focus trap, backdrop, M7 and
+per-accent contrast tables, is in `.superpowers/sdd/task-10-report.md` under `## Fix pass`.
+
+## Status
+
+Done. Findings applied and verified live; four deferred items recorded above.
+
+## Next
+
+Unchanged: Task 11 assembles `SettingsPanel.tsx` from this shell — note the new required
+`activeTab` prop, and that it must call `useDebouncedPatch`'s `flush` on close if its
+panel stays mounted behind `open={false}`. Task 17 remains the dark-mode gate and now
+carries one extra item (the `SettingsNav` active-tab tint) alongside the 13 existing
+`bg-steel-dark text-white` call sites, `ToggleRow`'s off-track, and the 11px secondary
+text.

@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { ReactNode } from "react";
 
 export function ToggleRow({
@@ -13,12 +14,18 @@ export function ToggleRow({
   onToggle: () => void;
   icon?: ReactNode;
 }) {
+  const hintId = useId();
+
   return (
     <div className="flex items-start gap-2 text-xs text-steel-dark">
       {icon}
       <div className="min-w-0">
         <span className="font-medium">{label}</span>
-        {hint && <p className="text-[11px] text-steel/60 mt-0.5">{hint}</p>}
+        {hint && (
+          <p id={hintId} className="text-[11px] text-steel/60 mt-0.5">
+            {hint}
+          </p>
+        )}
       </div>
       <button
         type="button"
@@ -26,6 +33,7 @@ export function ToggleRow({
         role="switch"
         aria-checked={on}
         aria-label={label}
+        aria-describedby={hint ? hintId : undefined}
         className={`ml-auto shrink-0 w-9 h-5 rounded-full transition relative ${
           on ? "bg-steel-highlight" : "bg-navy-700/30"
         }`}
