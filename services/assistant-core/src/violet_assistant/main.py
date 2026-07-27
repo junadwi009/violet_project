@@ -22,6 +22,7 @@ from violet_assistant.routes.memory import create_memory_router
 from violet_assistant.routes.personality import create_personality_router
 from violet_assistant.routes.providers import create_providers_router
 from violet_assistant.routes.sessions import create_sessions_router
+from violet_assistant.routes.export import create_export_router
 from violet_assistant.routes.agent_runs import create_agent_runs_router
 from violet_assistant.routes.fetch import create_fetch_router
 from violet_assistant.routes.knowledge import create_knowledge_router
@@ -235,6 +236,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(create_chat_router(orchestrator))
     app.include_router(create_memory_router(store, memory_store))
     app.include_router(create_sessions_router(store))
+    app.include_router(
+        create_export_router(store, memory_store, preferences, active_settings)
+    )
     app.include_router(create_settings_router(preferences, active_settings))
     app.include_router(create_fetch_router())
     app.include_router(
