@@ -218,14 +218,34 @@ export function App() {
     ])
       .then(([, nextPersonalities, providerResponse, nextSessions]) => {
         setPersonalities(nextPersonalities);
-        if (
+        // Functional updaters, not a read of the `personalityId` /
+        // `selectedProvider` closed over at mount: the `fetchSettings()`
+        // bootstrap below seeds both from the persisted `default_personality`
+        // / `default_provider` in a separate, unordered promise chain within
+        // this same effect. Reading the closed-over value here would race —
+        // sometimes checking the still-hardcoded initial state, sometimes
+        // (depending on which request lands first) missing the seeded value
+        // entirely, since this callback was created once at mount and never
+        // sees renders that happened after it started running. The functional
+        // form always sees whatever is actually in state right now.
+        setPersonalityId((current) =>
           nextPersonalities.length > 0 &&
-          !nextPersonalities.some((profile) => profile.id === personalityId)
-        ) {
-          setPersonalityId(nextPersonalities[0].id);
-        }
+          !nextPersonalities.some((profile) => profile.id === current)
+            ? nextPersonalities[0].id
+            : current,
+        );
         setProviders(providerResponse.items);
-        setSelectedProvider(providerResponse.active);
+        // Same reasoning as above: a stored `default_provider` that no longer
+        // appears in `providerResponse.items` (provider removed/renamed on
+        // the server) must not leave the UI pointing at a dead id. The
+        // server's active provider is the fallback, not an unconditional
+        // override — see the `fetchSettings()` bootstrap for the seed this
+        // guards.
+        setSelectedProvider((current) =>
+          providerResponse.items.some((item) => item.id === current)
+            ? current
+            : providerResponse.active,
+        );
         setRouterInfo(providerResponse.router ?? null);
         setSessions(nextSessions);
       })
@@ -237,7 +257,26 @@ export function App() {
       .then((response) => setAgents(response.enabled ? response.items : []))
       .catch(() => setAgents([]));
     fetchSettings()
-      .then(setAppSettings)
+      .then((settings) => {
+        setAppSettings(settings);
+        // One-time seed from the persisted preference, not a recurring
+        // `useEffect` on `[appSettings]` (contrast `speechOutputEnabled`
+        // above): every later change to persona/provider already goes
+        // through `patchNow`, which round-trips through `setAppSettings`
+        // itself, so `values` and this local state never drift apart on
+        // their own the way `auto_speak` and the composer's local toggle
+        // can. A recurring resync would actively fight the fallback guards
+        // in the personalities/providers bootstrap above — those correct an
+        // invalid stored id locally without patching it back to the server,
+        // so `values.default_personality` / `values.default_provider` can
+        // stay stale on purpose; resyncing from them on every settings
+        // change would undo the fallback the moment any unrelated setting
+        // changes.
+        const persona = String(settings.values.default_personality ?? "");
+        if (persona) setPersonalityId(persona);
+        const provider = String(settings.values.default_provider ?? "");
+        if (provider) setSelectedProvider(provider);
+      })
       .catch(() => setAppSettings(null));
     fetchSkills()
       .then((response) => setSkills(response.enabled ? response.items : []))
@@ -791,10 +830,20 @@ export function App() {
         onClose={() => setSettingsOpen(false)}
         personalities={personalities}
         personalityId={personalityId}
-        onSelectPersonality={setPersonalityId}
+        onSelectPersonality={(id) => {
+          setPersonalityId(id);
+          // patchNow, not patchDebounced: this is a click-driven control that
+          // renders straight from `personalityId`/`values`, not local state
+          // accumulating a stream of changes — see the `patchNow` vs
+          // `patchDebounced` note on `PanelProps` in SettingsShell.tsx.
+          handlePatchSettings({ default_personality: id });
+        }}
         providers={providers}
         selectedProvider={selectedProvider}
-        onSelectProvider={setSelectedProvider}
+        onSelectProvider={(id) => {
+          setSelectedProvider(id);
+          handlePatchSettings({ default_provider: id });
+        }}
         router={routerInfo}
         agents={agents}
         selectedAgent={selectedAgent}

@@ -200,3 +200,145 @@ verified by direct hex-value contrast computation against the tokens actually in
   `getComputedStyle` on the input itself; needs either a manual pass or reading the
   stylesheet rule directly) and should run its contrast pass in both themes, not dark-only,
   to avoid repeating this exact miss.
+
+---
+
+## Task 16 — persist persona and provider selections (same file, new day's work continues)
+
+- **Date:** 2026-07-28
+- **Track:** 1 Chat (same file as Tasks 11–15)
+- **Branch:** feat/settings-overhaul
+
+### What
+
+`default_personality` / `default_provider` have been editable preference keys since Task 1,
+and the persona/provider pickers have rendered since Task 5, but selecting either only ever
+set local React state — both reset on every reload. Wired both to persist:
+
+1. **Bootstrap seed.** `App.tsx`'s `fetchSettings()` bootstrap now reads
+   `settings.values.default_personality` / `default_provider` and seeds `personalityId` /
+   `selectedProvider` from them, once, at mount.
+2. **Persist on selection.** `SettingsPanel`'s `onSelectPersonality` / `onSelectProvider`
+   handlers (passed from `App.tsx`) now call `setPersonalityId`/`setSelectedProvider` **and**
+   `handlePatchSettings({ default_personality: id })` / `{ default_provider: id }` in the same
+   click — `patchNow`, not `patchDebounced` (see rationale below).
+3. **Race-safe fallback guards.** The existing personalities-bootstrap guard (falls back to
+   the first available profile if the current id doesn't resolve) and a newly added provider
+   equivalent were rewritten as functional `setState` updaters instead of reading the
+   `personalityId`/`selectedProvider` closed over at mount — see "Ordering hazard" below.
+4. `selectedAgent` / `onSelectAgent` untouched — no persistence key added, per the brief
+   (delegation is deliberately session-local).
+
+### Why — real line numbers (brief's were stale)
+
+The brief (`task-16-brief.md`) cited `App.tsx:83/193/204-206`, written before Tasks 11–15
+extracted panels and added appearance/speech-output/delete-all wiring. Actual locations at
+the start of this task (HEAD `929ec8e`):
+
+- `personalityId` hardcoded init: line 107 (`useState("violet.default")`) — left unchanged,
+  it's just the pre-seed placeholder.
+- Personalities/providers bootstrap (the `Promise.all([...]).then(...)`) with the
+  fallback guard and the unconditional `setSelectedProvider(providerResponse.active)`:
+  lines 212–249, override at line 228.
+- `fetchSettings()` bootstrap to modify: lines 239–241.
+- `SettingsPanel` instantiation with `onSelectPersonality={setPersonalityId}` /
+  `onSelectProvider={setSelectedProvider}`: lines 794 / 797 (inside 789–816).
+
+### Ordering hazard (not in the brief, found while implementing)
+
+The `Promise.all(...)` bootstrap and the separate `fetchSettings()` call both live in the
+same `useEffect(() => {...}, [])`, fired as sibling un-awaited promise chains in one mount.
+Which resolves first is a network race. The brief's Step 1 snippet seeds `personalityId` /
+`selectedProvider` inside the `fetchSettings()` branch; the existing fallback guard (and the
+provider equivalent this task adds) lives in the *other* branch and originally read
+`personalityId` via the closure captured at mount — i.e., always the hardcoded
+`"violet.default"`, **never** whatever the `fetchSettings()` branch had since-set, regardless
+of which request actually won the race (the effect callback itself only runs once and
+doesn't see intervening renders). Concretely: `nextPersonalities.some(p => p.id ===
+personalityId)` would keep checking against `"violet.default"` forever, which is present in
+`nextPersonalities` in the common case — so the guard would silently report "fine" even when
+the seeded `personalityId` state was an id that no longer resolves. That's exactly the
+hazard the brief calls out ("verify the guard still runs after this change... it must
+compare against whatever `setPersonalityId` ended up with").
+
+Fixed by switching both guards to the functional updater form —
+`setPersonalityId((current) => ...)` / `setSelectedProvider((current) => ...)` — which always
+reads the true current state at the moment it runs, independent of promise-resolution order.
+Also added the provider-side equivalent (`providerResponse.items.some(item => item.id ===
+current) ? current : providerResponse.active`), since the brief notes the identical
+reasoning applies to a stored provider that's no longer offered, but the pre-existing code
+had no such guard for providers at all (only the unconditional override this task removes).
+
+### Seeding approach vs. the Task 14 `speechOutputSeededRef` pattern
+
+Deliberately **not** reused. Task 14's `speechOutputTappedRef` guards a recurring
+`useEffect(() => {...}, [appSettings])` that re-derives local state from `values.auto_speak`
+on *every* settings change, because the composer's speak-toggle button can diverge from the
+persisted value **without ever patching it** — so blind resyncing would erase a legitimate,
+un-persisted local choice, and the ref exists to detect and protect that divergence.
+
+Persona/provider have no such divergence path: the only two things that ever write
+`personalityId`/`selectedProvider` after mount are (a) the click handlers, which now always
+patch immediately in the same call, keeping local state and `appSettings.values` in lockstep,
+and (b) the fallback guards, which correct an *invalid* id locally without patching it back
+(intentionally — the brief requires the fallback to just work, not to silently overwrite the
+user's stored preference). A recurring `[appSettings]` resync would actively fight (b): any
+unrelated settings change after a fallback correction would re-read the still-stale, still-
+invalid `values.default_personality` and stomp the correction right back. So this task uses
+a **one-time** seed inside the `fetchSettings()` bootstrap only (matching the brief's Step 1
+snippet as given), not a recurring effect — the opposite of Task 14's fix, applied
+deliberately because the two cases differ in exactly the property that made Task 14's ref
+necessary.
+
+One accepted gap from this choice: `GeneralPanel`'s "Reset section" resets both
+`default_personality` and `default_provider` server-side (both are in the backend's
+`"general"` preference group, confirmed in `preferences/store.py`) via `onSettingsRefreshed`,
+which updates `appSettings` directly and does not touch `personalityId`/`selectedProvider`.
+A reset while Settings is open would leave the picker showing the old selection until the
+next reload (which re-seeds correctly from the now-reset `default_personality`/
+`default_provider`). Not covered by the brief's four browser checks; noted here rather than
+silently fixed, since fixing it would require either threading a signal through
+`onSettingsRefreshed` or reintroducing the resync-effect this task deliberately avoided.
+
+### Files touched
+
+- `apps/web-client/src/App.tsx` — bootstrap seeding, functional-updater fallback guards
+  (personality + new provider guard), `onSelectPersonality`/`onSelectProvider` now persist
+
+### Status
+
+done
+
+### Verification
+
+**Build** — `cd apps/web-client && npm run build` → `tsc -b && vite build`, `✓ built in
+17.39s`, no TypeScript errors. Same pre-existing "chunk larger than 500 kB" advisory as
+prior tasks, unrelated.
+
+**Browser** — Vite `127.0.0.1:5173` + `uvicorn` on `127.0.0.1:8000`, isolated with
+`DATABASE_URL=sqlite:///./.tmp/task16-scratch/scratch.db`, `MEMORY_DIR=./.tmp/task16-scratch/memory`,
+`LLM_PROVIDER=mock` (real `.env`/`data/violet.db` never touched or read for chat data).
+
+| Check | Result |
+|---|---|
+| Select "Devoted Strategist" persona | `PATCH /api/settings` fired in the same network batch as the click (no debounce gap); response `values.default_personality: "violet.devoted_strategist"`. Reload → still selected in Settings; header/composer/empty-state assistant name still reads "Violet" (both profiles' `name` field is literally `"Violet"` — codename differs, display name doesn't — so this check is satisfied but not a strong discriminator). |
+| Select "Local / OpenAI-compatible" provider (Model tab) | `PATCH /api/settings` fired immediately; response `values.default_provider: "openai_compatible"`, `overridden` grew to include it. Reload → composer chip reads "Local" (`shortProviderLabel("openai_compatible")`), matching the persisted choice. |
+| Timing | Both PATCHes appear back-to-back with the preceding `GET`s in the captured network log (sub-frame gap, not a separate ~300 ms-later request) — consistent with `patchNow` or wired directly, not through the debouncer. |
+| Fallback: renamed `configs/personality/violet.devoted_strategist.json` → `.json.bak`, restarted backend | `/health` reported `personality_profiles: ["violet.default"]` only. Reload with `preferences.json` still holding the stale `default_personality` → Settings → General showed a single "Violet" button, selected, no empty/broken state. File restored immediately after (`mv` back), backend restarted again, `/health` confirmed both profiles present again before continuing. |
+| Agent selection not persisted | Selected "Analyst" under Settings → Agents (dev mode). Reloaded. Settings → Agents showed "Violet (no delegation)" selected again — confirms `selectedAgent` correctly stays session-local. |
+
+**Cleanup** — backend and Vite dev server stopped; `.tmp/task16-scratch` (gitignored) removed;
+`data/preferences.json` restored to exactly `{"ui_mode": "developer"}` (it had accumulated
+`default_personality`/`default_provider` from the manual test clicks, since the backend's
+`PreferencesStore` path is fixed at `repo_root/data/preferences.json` regardless of
+`DATABASE_URL` — confirmed via `git status` showing only `App.tsx` modified afterward).
+`configs/personality/` restored to its original two files. Real `.env` and `data/violet.db`
+were never opened or modified.
+
+### Next
+
+- Task 17's contrast sweep (no new color classes were introduced by this task — purely
+  behavioral wiring, no forbidden `bg-steel-dark text-white` / `bg-white`+`text-steel-dark`
+  pairs added).
+- Possible future cleanup: the "general reset desyncs picker until reload" gap noted above,
+  if it ever proves user-visible enough to matter.
