@@ -50,7 +50,7 @@
   --color-steel-light: #8d7da8;
   --color-steel-ice: #241d31;
   --color-steel-dark: #f2ecfa;
-  --color-steel-highlight: #a855f7;
+  --color-steel-highlight: #c084fc; /* default dark accent — see contrast note below */
 }
 
 /* Semantic status colors, so components stop reaching for raw
@@ -64,10 +64,25 @@
   --color-warning: #fbbf24;
 }
 
-/* Accent — one hue per theme, each checked for >=4.5:1 against its
-   surface because the accent is used for text, not only for fills. */
+/* Accent — one hue per theme. The accent is used for link and button *text*,
+   not only for fills, so every hue is measured against BOTH surfaces it can
+   sit on: the page background (--color-navy-950) and the card surface
+   (--color-navy-800). The worse of the two is the one quoted here, and all ten
+   clear WCAG AA 4.5:1 for normal text.
+
+     light  violet #7b2cbf 6.52   indigo #4f46e5 5.77   teal #0f766e 5.02
+            amber  #b45309 4.61   rose   #be123c 5.77
+     dark   violet #c084fc 6.14   indigo #818cf8 5.44   teal #2dd4bf 8.71
+            amber  #fbbf24 9.71   rose   #fb7185 6.02
+
+   Light-mode cards are white, so the page background is the tighter constraint
+   there; dark-mode cards are *lighter* than the page, so the card is the
+   tighter constraint in dark. Two hues were changed to make the claim true:
+   light teal was #0d9488 (3.44:1) and the default dark violet was #a855f7
+   (4.10:1 on cards) — both failed AA as text. Re-measure this table if any
+   surface token moves. */
 [data-accent="indigo"] { --color-steel-highlight: #4f46e5; }
-[data-accent="teal"]   { --color-steel-highlight: #0d9488; }
+[data-accent="teal"]   { --color-steel-highlight: #0f766e; }
 [data-accent="amber"]  { --color-steel-highlight: #b45309; }
 [data-accent="rose"]   { --color-steel-highlight: #be123c; }
 
@@ -76,10 +91,14 @@
 [data-theme="dark"][data-accent="amber"]  { --color-steel-highlight: #fbbf24; }
 [data-theme="dark"][data-accent="rose"]   { --color-steel-highlight: #fb7185; }
 
-/* Font scale multiplies the root size, so every rem-based utility
-   scales at once. */
+/* Font scale multiplies the root size, so every rem-based utility scales at
+   once. The base is 1rem, not a hardcoded 16px: on the root element `rem`
+   resolves against the browser's *initial* font size, so someone who set their
+   browser default to 20px keeps it. Identical to 16px at the default setting.
+   `--font-scale` is clamped to 0.875–1.25 before it is ever set — see
+   lib/theme.ts and the pre-paint script in index.html. */
 html {
-  font-size: calc(16px * var(--font-scale, 1));
+  font-size: calc(1rem * var(--font-scale, 1));
 }
 
 /* Density touches vertical rhythm only. A density switch that also

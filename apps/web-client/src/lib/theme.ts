@@ -20,6 +20,30 @@ export const DEFAULT_APPEARANCE: Appearance = {
 
 const CACHE_KEY = "violet.appearance";
 
+export const MIN_FONT_SCALE = 0.875;
+export const MAX_FONT_SCALE = 1.25;
+
+/**
+ * Coerce anything into a usable font scale.
+ *
+ * This is a safety clamp, not a convenience. `html { font-size: calc(1rem *
+ * var(--font-scale)) }` renders at **0px** for `NaN`, `0` or a negative value —
+ * `NaN` is a *valid* calc token that clamps to zero for a non-negative length,
+ * so there is no "invalid declaration" fallback to save us. At 0px every rem
+ * utility collapses, including the Appearance panel the user would need to
+ * undo it. `1e400` is the mirror image: Infinity, an 8000px root.
+ *
+ * Neither input is trustworthy. The server validates on write but
+ * `PreferencesStore.effective()` re-reads preferences.json and filters by key
+ * name only, so a hand-edited or stale file flows straight through; and
+ * localStorage sits outside server validation entirely.
+ */
+export function clampFontScale(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_APPEARANCE.fontScale;
+  return Math.min(MAX_FONT_SCALE, Math.max(MIN_FONT_SCALE, n));
+}
+
 function prefersDark(): boolean {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
 }
@@ -43,7 +67,7 @@ export function appearanceFromSettings(values: SettingsValues): Appearance {
   return {
     theme: (values.theme as ThemeChoice) ?? DEFAULT_APPEARANCE.theme,
     density: (values.ui_density as DensityChoice) ?? DEFAULT_APPEARANCE.density,
-    fontScale: Number(values.font_scale ?? DEFAULT_APPEARANCE.fontScale),
+    fontScale: clampFontScale(values.font_scale ?? DEFAULT_APPEARANCE.fontScale),
     accent: (values.accent as AccentChoice) ?? DEFAULT_APPEARANCE.accent,
   };
 }
@@ -52,7 +76,15 @@ export function readCachedAppearance(): Appearance {
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
     if (!raw) return DEFAULT_APPEARANCE;
-    return { ...DEFAULT_APPEARANCE, ...(JSON.parse(raw) as Partial<Appearance>) };
+    const cached = JSON.parse(raw) as Partial<Appearance>;
+    // The DEFAULT_APPEARANCE spread only fills in *absent* keys — it cannot
+    // protect against a key that is present and bad, and localStorage never
+    // passed through server validation. Clamp explicitly.
+    return {
+      ...DEFAULT_APPEARANCE,
+      ...cached,
+      fontScale: clampFontScale(cached.fontScale ?? DEFAULT_APPEARANCE.fontScale),
+    };
   } catch {
     return DEFAULT_APPEARANCE;
   }
