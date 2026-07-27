@@ -17,9 +17,8 @@ its own TDD red/green cycle and commit:
    metadata addition, `test_settings_groups.py` created to pin it.
 2. **Nine appearance + voice keys** (`14ffe85`) — four `appearance` keys
    (`theme`, `ui_density`, `font_scale`, `accent`) and five `voice` keys
-   (`voice_lang`, `voice_name`, `voice_rate`, plus two more in the same group),
-   each with a validator and a default. `EDITABLE_KEYS` grew from 20 to the base
-   the later model-key task built on.
+   (`voice_lang`, `voice_name`, `voice_rate`, `voice_pitch`, `auto_speak`),
+   each with a validator and a default. `EDITABLE_KEYS` grew from 11 to 20.
 3. **`ModelResolver` for call-time model-id resolution** (`a7cf586`,
    `619c907`, `2daf34e`) — new `preferences/resolver.py`: `ModelResolver(store,
    settings).resolve(key)` reads a preference override at call time instead of a
@@ -89,7 +88,7 @@ that can flip them — `LOCKED_KEYS` is a literal tuple, never a filter over
 
 ## Interfaces / contracts changed
 - `EDITABLE_KEYS: dict[str, PrefSpec]` — 25 keys total, each tagged with a
-  group (`general`, `appearance`, `model`, `behavior`, `voice`).
+  group (`general`, `appearance`, `model`, `behavior`, `voice`, `knowledge`).
 - `keys_in_group(group: str) -> list[str]`.
 - `ModelResolver(preferences: PreferencesStore | None, settings: Settings)` /
   `.resolve(key: str) -> str`, raises `KeyError` on an unknown key.
