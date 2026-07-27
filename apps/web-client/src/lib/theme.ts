@@ -48,6 +48,38 @@ function prefersDark(): boolean {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
 }
 
+const THEME_VALUES: readonly ThemeChoice[] = ["light", "dark", "system"];
+const DENSITY_VALUES: readonly DensityChoice[] = ["cozy", "compact"];
+const ACCENT_VALUES: readonly AccentChoice[] = ["violet", "indigo", "teal", "amber", "rose"];
+
+/**
+ * Coerce anything into a known theme. Same rationale as `clampFontScale`:
+ * the server validates on write but `PreferencesStore.effective()` re-reads
+ * preferences.json and filters by key name only, so a bad value (hand-edited
+ * file, stale cache) reaches the client verbatim. Unlike `??`, this also
+ * catches a *present* bad value, not just `null`/`undefined` — `"purple"`
+ * must not be handed to `applyAppearance`, which stamps it onto `<html>`
+ * with no matching CSS rule, or to the `theme !== "system"` check that
+ * decides whether to subscribe to OS theme changes.
+ */
+function coerceTheme(value: unknown): ThemeChoice {
+  return (THEME_VALUES as readonly unknown[]).includes(value)
+    ? (value as ThemeChoice)
+    : DEFAULT_APPEARANCE.theme;
+}
+
+function coerceDensity(value: unknown): DensityChoice {
+  return (DENSITY_VALUES as readonly unknown[]).includes(value)
+    ? (value as DensityChoice)
+    : DEFAULT_APPEARANCE.density;
+}
+
+function coerceAccent(value: unknown): AccentChoice {
+  return (ACCENT_VALUES as readonly unknown[]).includes(value)
+    ? (value as AccentChoice)
+    : DEFAULT_APPEARANCE.accent;
+}
+
 /** Stamp the appearance onto <html>. Everything else is CSS. */
 export function applyAppearance(appearance: Appearance): void {
   const root = document.documentElement;
@@ -63,12 +95,18 @@ export function applyAppearance(appearance: Appearance): void {
   root.style.setProperty("--font-scale", String(appearance.fontScale));
 }
 
+/**
+ * The single source of truth for turning raw server settings into a
+ * validated `Appearance`. Both the painted page (`App.tsx`) and the
+ * Appearance panel derive from this function, so they can never disagree
+ * about what a bad value should display as.
+ */
 export function appearanceFromSettings(values: SettingsValues): Appearance {
   return {
-    theme: (values.theme as ThemeChoice) ?? DEFAULT_APPEARANCE.theme,
-    density: (values.ui_density as DensityChoice) ?? DEFAULT_APPEARANCE.density,
+    theme: coerceTheme(values.theme),
+    density: coerceDensity(values.ui_density),
     fontScale: clampFontScale(values.font_scale ?? DEFAULT_APPEARANCE.fontScale),
-    accent: (values.accent as AccentChoice) ?? DEFAULT_APPEARANCE.accent,
+    accent: coerceAccent(values.accent),
   };
 }
 

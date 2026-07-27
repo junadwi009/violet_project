@@ -285,3 +285,119 @@ done
   inventory (Send button, quick-prompt pills, header bar, floating-tools rail
   observed above) — this task's dark-mode walkthrough is additional evidence
   for that sweep, not a fix.
+
+---
+
+# Fix pass — Task 12 review findings (malformed server values)
+
+- **Date:** 2026-07-27
+- **Track:** cross-cutting (web-client UI)
+- **Branch:** feat/settings-overhaul
+- **Author:** Claude Code (Task 12 review fixes)
+
+## What
+A reviewer re-measured Task 12 under instrumentation with a hand-edited
+`data/preferences.json`. Functional core (write channels, no pre-paint
+flash, system-theme following, listener balance, reset, font-scale page
+clamp) was confirmed solid and untouched. Four findings, all in
+malformed-server-value handling:
+
+1. **(IMPORTANT) Theme coercion masked a real disagreement.**
+   `appearanceFromSettings` in `lib/theme.ts` used `??`, which only catches
+   `null`/`undefined` — a bad `theme` value (e.g. `"purple"`) reached
+   `applyAppearance` verbatim and was stamped on `<html>` with no matching
+   CSS rule, while `AppearancePanel`'s separate coercion displayed "System".
+   Worse: `App.tsx` only subscribes to `watchSystemTheme` when
+   `appearance.theme === "system"`, and the *applied* (uncoerced) value was
+   `"purple"`, not `"system"` — so the subscription never registered. The
+   panel advertised OS-following that would never happen.
+2. **(IMPORTANT) Panel rendered "NaNpx".** `AppearancePanel` computed
+   `Number(values.font_scale ?? DEFAULT_APPEARANCE.fontScale)` directly; `??`
+   doesn't catch a present-but-bad value, so `font_scale: "not-a-number"`
+   produced `NaN`, visible in the slider label and a stale thumb position.
+   The page's own clamp was fine — the panel's was not.
+3. **(MINOR) Accent swatch group had no accessible name or grouping** —
+   five `aria-pressed` toggle buttons with no `role="group"` or
+   `aria-labelledby`, inconsistent with the panel's own `role="radiogroup"`
+   pattern used for Theme/Density.
+4. **(MINOR) Swatch comment overstated the hexes** — claimed each swatch
+   shows its "TRUE hue in both themes"; the hexes are fixed light-palette
+   values that don't match the theme-dependent applied token (e.g. teal
+   applies `#0f766e` light / `#2dd4bf` dark). Hue-*family* indicator, not
+   true-hue.
+
+Two rationales from the original Task 12 report were contradicted by
+measurement and corrected in place in `.superpowers/sdd/task-12-report.md`:
+the claim that `appearanceFromSettings` already fell back to `"system"` for
+a bad theme (it used `??`, so it did not), and the claim that `font_scale`
+was "already covered" by the page-level clamp (that clamp protects the
+painted page, not the panel's own `Number(...)` read).
+
+## Why
+Both IMPORTANT findings shipped because their stated rationale sounded
+right and nobody had hand-edited `preferences.json` to check. The backend
+validates preference writes, but `PreferencesStore.effective()` re-reads
+`data/preferences.json` and filters by key *name* only — never re-validates
+— so a hand-edited or stale file serves bad values to the client verbatim.
+That's the path both findings travel.
+
+## Files touched
+- mod `apps/web-client/src/lib/theme.ts` — added `coerceTheme` /
+  `coerceDensity` / `coerceAccent` (validated against explicit
+  `THEME_VALUES` / `DENSITY_VALUES` / `ACCENT_VALUES` sets) and wired them
+  into `appearanceFromSettings`, which is now the single source of truth
+  both `App.tsx` and `AppearancePanel` derive from.
+- mod `apps/web-client/src/components/settings/panels/AppearancePanel.tsx`
+  — removed the panel-local `theme`/`density`/`accent` coercion blocks in
+  favor of `appearanceFromSettings(values)`; `SliderRow`'s `value` now reads
+  the same call's `fontScale` instead of a raw `Number(...)`; added
+  `role="group"` + `aria-labelledby` (via `useId()`) to the accent swatch
+  container; reworded the `ACCENTS` hardcoded-hex comment.
+
+## Interfaces / contracts changed
+- None externally. `appearanceFromSettings` (Task 9) keeps its signature —
+  only its internal coercion got stricter. No backend change.
+
+## Status
+done
+
+## Verification
+`cd apps/web-client && npm run build` → `tsc -b` clean, `✓ built in 17.09s`.
+
+Measured in the real app (backend `LLM_PROVIDER=mock` on :8000, vite dev
+server on :5173, then re-checked against the production build via
+`vite preview --port 4173 --strictPort` since pre-paint checks are only
+valid there — the dev server injects CSS via JS):
+
+| Case | Before | After |
+|---|---|---|
+| `theme: "purple"`, OS emulated dark — panel | "System" | "System" (unchanged, now honest) |
+| `theme: "purple"`, OS emulated dark — `data-theme` | `"purple"` | `"dark"` |
+| `theme: "purple"`, OS emulated dark — `bodyBg` | `rgb(247,244,250)` (light) | `rgb(20,16,28)` (dark) |
+| `theme: "purple"` — OS-follow subscription | never registers | live: flipping emulated scheme dark→light flips `data-theme` and `bodyBg` in the same tab, no reload |
+| `font_scale: "not-a-number"` — panel label | `"NaNpx"` | `"16px"` |
+| `font_scale: "not-a-number"` — slider thumb | stale `1.075` | `"1"` (matches label and `--font-scale`) |
+| `font_scale: "not-a-number"` — page `--font-scale` | `1` (already correct) | `1` (unchanged) |
+
+Regression check (via `window.fetch` instrumentation, not just visual
+inspection):
+- Theme click → Dark: single `PATCH /api/settings` `{"theme":"dark"}`,
+  fired synchronously with the click (`patchNow`, unchanged).
+- Accent click → Teal: single `PATCH /api/settings` `{"accent":"teal"}`
+  (`patchNow`, unchanged).
+- Font-size: dispatched a 5-step drag (1.025 → 1.125) programmatically;
+  exactly **one** `PATCH /api/settings` fired, body `{"font_scale":1.125}`
+  (`patchDebounced` coalescing, unchanged).
+
+Accent group a11y: `role="group"` on the swatch container, `aria-labelledby`
+resolves to an element with text `"Accent"` — confirmed via DOM query.
+
+Both dev (:5173) and preview (:4173) servers, plus the backend (:8000),
+stopped at the end of this pass. `data/preferences.json` restored to
+`{"ui_mode": "developer"}`, confirmed via `git diff` showing no changes to
+that file.
+
+## Next
+- None outstanding from this pass. Task 17 still owns the dark-mode
+  contrast sweep noted in the original Task 12 entry above; unaffected by
+  this fix pass.

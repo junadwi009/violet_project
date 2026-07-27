@@ -1,9 +1,10 @@
+import { useId } from "react";
 import type { PanelProps } from "../SettingsShell";
 import { SectionHeader } from "../controls/SectionHeader";
 import { SegmentedRow } from "../controls/SegmentedRow";
 import { SliderRow } from "../controls/SliderRow";
-import type { AccentChoice, DensityChoice, ThemeChoice } from "../../../lib/theme";
-import { DEFAULT_APPEARANCE } from "../../../lib/theme";
+import type { AccentChoice } from "../../../lib/theme";
+import { appearanceFromSettings } from "../../../lib/theme";
 
 const APPEARANCE_KEYS = ["theme", "ui_density", "font_scale", "accent"];
 
@@ -19,9 +20,13 @@ const DENSITY_OPTIONS = [
 ] as const;
 
 // Deliberate exception to the "no hardcoded colours" rule (see CLAUDE.md /
-// task brief): these swatches must show each accent's TRUE hue in both
-// themes, so they cannot be themed tokens. Task 17's dark-mode contrast sweep
-// should skip this block.
+// task brief): these are fixed light-palette reference hexes so each swatch
+// stays a recognisable hue *family* (teal, amber, rose, ...) regardless of
+// the active theme — they do NOT match the token actually applied, which is
+// theme-dependent (e.g. teal applies #0f766e in light, #2dd4bf in dark).
+// Swatches cannot be themed tokens without losing that stable identity, so
+// they stay hardcoded. Task 17's dark-mode contrast sweep should skip this
+// block.
 const ACCENTS: { value: AccentChoice; label: string; swatch: string }[] = [
   { value: "violet", label: "Violet", swatch: "#7b2cbf" },
   { value: "indigo", label: "Indigo", swatch: "#4f46e5" },
@@ -38,29 +43,16 @@ export function AppearancePanel({
   onReset,
 }: PanelProps & { onReset: () => void }) {
   const modified = APPEARANCE_KEYS.some((key) => overridden.includes(key));
+  const accentLabelId = useId();
 
-  // `theme` and `ui_density` come from server state, not a local click
-  // handler, so an unexpected value (a hand-edited preferences.json, a stale
-  // cache) is possible even though the backend validates on write. Coerce
-  // explicitly to a known option rather than handing the raw value to
-  // `SegmentedRow`: it reports the *first* option as checked for anything
-  // outside `options`, and "system" is not first, so an out-of-range theme
-  // would silently render as "Light" selected while the page is actually
-  // following the OS. Falling back to the same default `appearanceFromSettings`
-  // uses keeps the displayed selection truthful to what's on screen.
-  const theme: ThemeChoice = THEME_OPTIONS.some((option) => option.value === values.theme)
-    ? (values.theme as ThemeChoice)
-    : DEFAULT_APPEARANCE.theme;
-
-  const density: DensityChoice = DENSITY_OPTIONS.some(
-    (option) => option.value === values.ui_density,
-  )
-    ? (values.ui_density as DensityChoice)
-    : DEFAULT_APPEARANCE.density;
-
-  const accent: AccentChoice = ACCENTS.some((option) => option.value === values.accent)
-    ? (values.accent as AccentChoice)
-    : DEFAULT_APPEARANCE.accent;
+  // `theme`, `ui_density`, `accent` and `font_scale` all come from server
+  // state, not a local click handler, so an unexpected value (a hand-edited
+  // preferences.json, a stale cache) is possible even though the backend
+  // validates on write. `appearanceFromSettings` is the same coercion
+  // `App.tsx` applies to `<html>`, so deriving the panel's displayed values
+  // from it — rather than re-implementing the checks here — guarantees the
+  // panel can never show a selection that disagrees with what's painted.
+  const { theme, density, accent, fontScale } = appearanceFromSettings(values);
 
   return (
     <div className="space-y-5">
@@ -89,7 +81,7 @@ export function AppearancePanel({
 
       <SliderRow
         label="Font size"
-        value={Number(values.font_scale ?? DEFAULT_APPEARANCE.fontScale)}
+        value={fontScale}
         min={0.875}
         max={1.25}
         step={0.025}
@@ -100,8 +92,10 @@ export function AppearancePanel({
       />
 
       <div>
-        <span className="block text-xs font-medium text-steel-dark mb-2">Accent</span>
-        <div className="flex items-center gap-2">
+        <span id={accentLabelId} className="block text-xs font-medium text-steel-dark mb-2">
+          Accent
+        </span>
+        <div role="group" aria-labelledby={accentLabelId} className="flex items-center gap-2">
           {ACCENTS.map((option) => (
             <button
               key={option.value}
