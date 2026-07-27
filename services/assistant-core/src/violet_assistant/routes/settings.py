@@ -17,6 +17,21 @@ class ResetRequest(BaseModel):
     keys: list[str] | None = None
 
 
+# Safety-relevant settings shown read-only in the UI. An explicit allowlist, never
+# a filter over Settings — a filter silently starts leaking the moment someone adds
+# a field whose name it did not anticipate.
+LOCKED_KEYS: tuple[str, ...] = (
+    "llm_provider",
+    "agent_tools_enabled",
+    "allow_shell_tools",
+    "allow_email_tools",
+    "allow_file_delete",
+    "require_confirmation_for_risky_tools",
+    "tool_confirm_threshold",
+    "max_tool_iterations",
+)
+
+
 def create_settings_router(store: PreferencesStore, settings: Settings) -> APIRouter:
     router = APIRouter()
 
@@ -25,6 +40,7 @@ def create_settings_router(store: PreferencesStore, settings: Settings) -> APIRo
             "values": store.effective(settings),
             "defaults": store.defaults(settings),
             "overridden": store.overridden(),
+            "locked": {key: getattr(settings, key) for key in LOCKED_KEYS},
         }
 
     @router.get("/api/settings")
