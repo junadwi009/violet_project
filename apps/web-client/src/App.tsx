@@ -54,7 +54,7 @@ import { AvatarPresence } from "./components/AvatarPresence";
 import { VoiceOverlay } from "./components/VoiceOverlay";
 import { FloatingTools } from "./components/FloatingTools";
 import { MemoryDrawer } from "./components/MemoryDrawer";
-import { SettingsModal } from "./components/SettingsModal";
+import { SettingsPanel } from "./components/settings/SettingsPanel";
 import { HelpModal } from "./components/HelpModal";
 import { SkillLab } from "./components/SkillLab";
 import { CanvasPanel } from "./components/CanvasPanel";
@@ -695,7 +695,7 @@ export function App() {
         onMemoryDelete={handleMemoryDelete}
       />
 
-      <SettingsModal
+      <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         personalities={personalities}
