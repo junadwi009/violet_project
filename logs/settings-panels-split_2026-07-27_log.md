@@ -164,3 +164,124 @@ instrumenting `window.fetch` for timings and a `MutationObserver` on
 - `ModelPanel`'s `!devMode → null` is defensive: the nav already hides that tab
   in user mode and the tab now resets on close, so the state is not reachable
   through the UI.
+
+---
+
+# Task 12 — Appearance panel
+
+- **Date:** 2026-07-27
+- **Track:** cross-cutting (web-client UI)
+- **Branch:** feat/settings-overhaul
+- **Author:** Claude Code (Task 12 of the settings overhaul plan)
+
+## What
+Added the Appearance panel (theme, density, font size, accent) and wired it
+into `SettingsPanel`'s nav switch and into `App.tsx`, which now applies
+`appearanceFromSettings(appSettings.values)` on every settings change,
+writes it to the `violet.appearance` localStorage cache, and follows OS theme
+changes live while `theme === "system"`. This is the first task that makes
+Task 9's theme machinery reachable from the UI.
+
+## Why
+Task 11 shipped the shell with the Appearance tab still a placeholder. Theming
+was fully built (tokens, `applyAppearance`, the pre-paint `index.html` script)
+but nothing in the app ever called it from user input.
+
+## Files touched
+- new `apps/web-client/src/components/settings/panels/AppearancePanel.tsx`
+- mod `apps/web-client/src/components/settings/SettingsPanel.tsx` — import +
+  `case "appearance"` in `renderPanel()` (was falling through to the "Coming in
+  the next task" default)
+- mod `apps/web-client/src/App.tsx` — theme import + an effect that applies and
+  caches appearance and subscribes to `watchSystemTheme` — shared seam
+
+## Interfaces / contracts changed
+- None. Consumes `PanelProps` (Task 10), `Appearance` / `AccentChoice` /
+  `applyAppearance` / `appearanceFromSettings` / `writeCachedAppearance` /
+  `watchSystemTheme` (Task 9) exactly as exported, and the `theme` /
+  `ui_density` / `font_scale` / `accent` backend keys (Task 2) unchanged.
+
+## Write-channel choice
+- `patchNow` (immediate) for **Theme**, **Density**, and the **Accent**
+  swatches — all three are click-driven and render straight from `values`
+  with no local state, so a debounce would only add latency, not hide it (see
+  the rationale comment on `patchNow`/`patchDebounced` in `SettingsShell.tsx`
+  and `SettingsPanel.tsx`).
+- `patchDebounced` (300 ms) for **Font size** only — `SliderRow` holds local
+  state and fires on every drag step, so debouncing coalesces a drag into one
+  PATCH / one file write instead of one per step.
+
+## Defensive coercion added beyond the brief's sample code
+`theme` and `ui_density` come from server state, not a click handler, so an
+out-of-range value (hand-edited `preferences.json`, a stale file) is possible
+even though the backend validates on write. `SegmentedRow` reports the
+*first* option as `aria-checked` for any `value` outside `options` — for
+Theme that's "Light", which is not the applied default ("system"). Coerced
+both (and `accent`, defensively) to a known option before handing them to
+`SegmentedRow`/the swatch buttons, falling back to `DEFAULT_APPEARANCE` so the
+displayed selection can never silently disagree with what's actually painted
+on screen. `font_scale` is left to `SliderRow`'s existing `Number(...)`
+coercion plus `appearanceFromSettings`'s own `clampFontScale` — not
+duplicated here.
+
+The five accent swatches use hardcoded hex values on purpose (each must show
+its true hue in both themes) and are commented in place so Task 17's
+`bg-steel-dark`/`bg-white` contrast sweep does not "fix" them.
+
+## Status
+done
+
+## Verification
+- `cd apps/web-client && npm run build` → `tsc -b` clean, `✓ built in 18.38s`.
+- Browser walkthrough: backend `LLM_PROVIDER=mock` on :8000 (`GET /health` →
+  `provider.status: "ok"`), vite dev server on :5173 via the project's
+  `.claude/launch.json` (`violet-web-client`, port 5173, `strictPort: true`
+  never triggered — port was free).
+  - Theme → Dark: UI inverted immediately, no reload; `<html data-theme>`
+    flipped synchronously with the click.
+  - Reload while dark: page reloaded and rendered dark; `localStorage
+    violet.appearance` held `{"theme":"dark",...}` before the reload, so the
+    `index.html` pre-paint script (Task 9, unmodified) had the value available
+    before the bundle ran. No white flash observed in the post-load
+    screenshot.
+  - Theme → System, then emulated the OS scheme to dark via the browser tool's
+    `colorScheme` control (no page reload in between):
+    `document.documentElement.dataset.theme` flipped from `"light"` to
+    `"dark"` and `window.matchMedia('(prefers-color-scheme: dark)').matches`
+    went `true`, confirming `watchSystemTheme`'s change listener is live.
+  - Font size: cleared `performance` resource timings, focused the slider and
+    pressed ArrowRight 6 times (steps through the debounce exactly like a mouse
+    drag), waited past 300 ms. **Exactly one** `fetch` entry to
+    `/api/settings` appeared (duration 47.0 ms) — one PATCH for a 6-step drag,
+    not six.
+  - Theme/Density/Accent round-trip timing, measured via
+    `performance.getEntriesByType('resource')` immediately after each click:
+    Dark theme click and Density click were visually instantaneous (UI flips
+    before the request even resolves, since both render from `values` which
+    only the response updates); the Accent → Teal click's PATCH measured
+    **39.0 ms**. All comfortably inside the "immediate, one round-trip"
+    expectation and nowhere near the old 300 ms debounce.
+  - Accent → Teal: propagated live to the active-tab highlight in Settings'
+    own nav and the slider thumb, confirming the CSS token wiring from Task 9
+    is being driven correctly, not just the swatch itself.
+  - Reset section: after Theme=Dark→System(still dark, OS emulated dark),
+    Density=Compact, Font=17px, Accent=Teal, clicked "Reset section" — Theme
+    back to System, Density back to Cozy, Font size back to 16px, Accent back
+    to Violet, modified dot cleared, button disabled again. `data/
+    preferences.json` came back to exactly `{"ui_mode": "developer"}` (its
+    pre-test content) with no leftover appearance keys — no manual restore
+    needed.
+- Newly visible in dark mode (not introduced by this task — Task 17's known
+  13 `bg-steel-dark text-white` / `bg-white text-steel-dark` call sites,
+  called out as expected in the brief): with Theme=Dark the composer's Send
+  button renders as a near-invisible light-on-light circle, the two
+  quick-prompt suggestion pills and the workspace header bar stay light-grey
+  against the dark canvas, and the floating-tools rail keeps a light pill
+  background. All consistent with the documented ~1.16:1 contrast defect;
+  none of it is in a file this task touched.
+
+## Next
+- Task 17 sweeps the `bg-steel-dark text-white` / `bg-white text-steel-dark`
+  inventory (Send button, quick-prompt pills, header bar, floating-tools rail
+  observed above) — this task's dark-mode walkthrough is additional evidence
+  for that sweep, not a fix.

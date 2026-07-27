@@ -45,6 +45,12 @@ import {
   stopSpeaking,
 } from "./lib/speech";
 import { AvatarEmotion, AvatarState, normalizeEmotion } from "./lib/avatar";
+import {
+  appearanceFromSettings,
+  applyAppearance,
+  watchSystemTheme,
+  writeCachedAppearance,
+} from "./lib/theme";
 import { Sidebar } from "./components/Sidebar";
 import { WorkspaceHeader } from "./components/WorkspaceHeader";
 import { EmptyState } from "./components/EmptyState";
@@ -212,6 +218,16 @@ export function App() {
       .catch(() => setKnowledge(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!appSettings) return;
+    const appearance = appearanceFromSettings(appSettings.values);
+    applyAppearance(appearance);
+    writeCachedAppearance(appearance);
+    if (appearance.theme !== "system") return;
+    // Follow OS changes while the app is open.
+    return watchSystemTheme(() => applyAppearance(appearance));
+  }, [appSettings]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });

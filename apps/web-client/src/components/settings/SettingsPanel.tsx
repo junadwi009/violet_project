@@ -26,6 +26,7 @@ import { SettingsNav, type NavItem } from "./SettingsNav";
 import { SettingsShell } from "./SettingsShell";
 import { useDebouncedPatch } from "./useDebouncedPatch";
 import { AgentsPanel } from "./panels/AgentsPanel";
+import { AppearancePanel } from "./panels/AppearancePanel";
 import { BehaviorPanel } from "./panels/BehaviorPanel";
 import { GeneralPanel } from "./panels/GeneralPanel";
 import { KnowledgePanel } from "./panels/KnowledgePanel";
@@ -177,6 +178,13 @@ export function SettingsPanel({
             personalityId={personalityId}
             onSelectPersonality={onSelectPersonality}
             onReset={() => handleReset("general")}
+          />
+        );
+      case "appearance":
+        return (
+          <AppearancePanel
+            {...panelProps}
+            onReset={() => handleReset("appearance")}
           />
         );
       case "behavior":
