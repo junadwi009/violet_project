@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 from violet_assistant.config import Settings
 
-# Editable keys map to a validator. NO secrets here — API keys, base URLs, DB
-# paths, and the ALLOW_* safety toggles stay in the frozen Settings / .env.
+# Editable keys map to a validator plus the settings group they render under. NO
+# secrets here — API keys, base URLs, DB paths, and the ALLOW_* safety toggles
+# stay in the frozen Settings / .env.
 
 
 def _is_bool(value: Any) -> bool:
@@ -26,19 +28,45 @@ def _is_str(value: Any) -> bool:
     return isinstance(value, str) and len(value) <= 200
 
 
-EDITABLE_KEYS: dict[str, Callable[[Any], bool]] = {
-    "llm_model": _is_str,
-    "temperature": _num(0.0, 2.0),
-    "memory_require_approval": _is_bool,
-    "memory_auto_save": _is_bool,
-    "web_search_enabled": _is_bool,
-    "web_search_model": _is_str,
-    "canvas_enabled": _is_bool,
-    "default_personality": _is_str,
-    "default_provider": _is_str,
-    "ui_mode": lambda v: v in {"user", "developer"},
-    "knowledge_auto_sync": _is_bool,
+def _choice(*allowed: str) -> Callable[[Any], bool]:
+    options = set(allowed)
+    return lambda value: value in options
+
+
+@dataclass(frozen=True)
+class PrefSpec:
+    validate: Callable[[Any], bool]
+    group: str
+
+
+# Task 2 adds "appearance" and "voice" here, together with the keys that fill
+# them — a group with no keys would fail the partition test.
+GROUPS: tuple[str, ...] = ("general", "model", "behavior", "knowledge")
+
+
+EDITABLE_KEYS: dict[str, PrefSpec] = {
+    # general
+    "ui_mode": PrefSpec(_choice("user", "developer"), "general"),
+    "default_personality": PrefSpec(_is_str, "general"),
+    "default_provider": PrefSpec(_is_str, "general"),
+    # model
+    "llm_model": PrefSpec(_is_str, "model"),
+    "temperature": PrefSpec(_num(0.0, 2.0), "model"),
+    "web_search_model": PrefSpec(_is_str, "model"),
+    # behavior
+    "memory_require_approval": PrefSpec(_is_bool, "behavior"),
+    "memory_auto_save": PrefSpec(_is_bool, "behavior"),
+    "web_search_enabled": PrefSpec(_is_bool, "behavior"),
+    "canvas_enabled": PrefSpec(_is_bool, "behavior"),
+    # knowledge
+    "knowledge_auto_sync": PrefSpec(_is_bool, "knowledge"),
 }
+
+
+def keys_in_group(group: str) -> list[str]:
+    if group not in GROUPS:
+        raise KeyError(group)
+    return [key for key, spec in EDITABLE_KEYS.items() if spec.group == group]
 
 
 def _defaults(settings: Settings) -> dict[str, Any]:
@@ -89,7 +117,7 @@ class PreferencesStore:
         for key, value in changes.items():
             if key not in EDITABLE_KEYS:
                 raise ValueError(f"unknown or non-editable key: {key}")
-            if not EDITABLE_KEYS[key](value):
+            if not EDITABLE_KEYS[key].validate(value):
                 raise ValueError(f"invalid value for {key}: {value!r}")
         current = self._load()
         current.update(changes)
