@@ -7,7 +7,19 @@ import { settingsPanelDomId, settingsTabDomId } from "./ids";
 export type PanelProps = {
   values: SettingsValues;
   overridden: string[];
-  patch: (changes: SettingsValues) => void;
+  /**
+   * Debounced (300 ms). ONLY for controls that keep their own local state and
+   * emit a stream of changes while the user is still interacting —
+   * `SliderRow`, `TextRow`. They stay responsive off that local state, so the
+   * delay is invisible and it saves one request + one file write per drag step.
+   */
+  patchDebounced: (changes: SettingsValues) => void;
+  /**
+   * Immediate. For click-driven controls that render straight out of `values` —
+   * `ToggleRow`, `SegmentedRow`. Debouncing one of these is a visible
+   * regression, not an optimisation: see the note in `SettingsPanel`.
+   */
+  patchNow: (changes: SettingsValues) => void;
   devMode: boolean;
 };
 

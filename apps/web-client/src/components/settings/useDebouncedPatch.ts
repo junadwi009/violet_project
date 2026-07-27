@@ -8,6 +8,10 @@ import type { SettingsValues } from "../../lib/api";
  * one HTTP request and one JSON file write per 0.1 of temperature. Controls hold
  * their own local value for responsiveness and call this to persist.
  *
+ * This is for controls that hold local state ONLY. A control whose displayed
+ * state comes straight from the server payload must patch undebounced — see the
+ * comment on `patchNow` in `SettingsPanel`.
+ *
  * `patch` and `delayMs` are read through refs, so `push` and `flush` are stable
  * for the lifetime of the hook. That matters: an unstable `patch` (an inline
  * arrow from the caller, which is the normal case) previously invalidated
@@ -23,7 +27,11 @@ import type { SettingsValues } from "../../lib/api";
 export function useDebouncedPatch(
   patch: (changes: SettingsValues) => void,
   delayMs = 300,
-): { push: (changes: SettingsValues) => void; flush: () => void } {
+): {
+  push: (changes: SettingsValues) => void;
+  flush: () => void;
+  cancel: () => void;
+} {
   const pending = useRef<SettingsValues>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patchRef = useRef(patch);
@@ -45,6 +53,19 @@ export function useDebouncedPatch(
     patchRef.current(changes);
   }, []);
 
+  /**
+   * Drop the queued changes without sending them. For when something else is
+   * about to overwrite the same keys — a group reset — and letting the queued
+   * PATCH fly would race it.
+   */
+  const cancel = useCallback(() => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    pending.current = {};
+  }, []);
+
   const push = useCallback(
     (changes: SettingsValues) => {
       // Merge by key: different keys within one window coalesce into a single
@@ -60,5 +81,5 @@ export function useDebouncedPatch(
   // renders.
   useEffect(() => () => flush(), [flush]);
 
-  return { push, flush };
+  return { push, flush, cancel };
 }

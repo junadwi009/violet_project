@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bot,
   Database,
@@ -60,6 +60,10 @@ export type SettingsPanelProps = {
   skills: SkillInfo[];
   settings: AppSettings | null;
   onPatchSettings: (changes: SettingsValues) => void;
+  /** App owns `appSettings`. A group reset returns the full post-reset payload
+   *  on its own response, so hand it back through here rather than firing a
+   *  second request just to re-read what we already have. */
+  onSettingsRefreshed: (next: AppSettings) => void;
   onOpenSkillLab: () => void;
   knowledge: KnowledgeInfo | null;
   onReindex: (full: boolean, source?: string) => void;
@@ -87,6 +91,7 @@ export function SettingsPanel({
   skills,
   settings,
   onPatchSettings,
+  onSettingsRefreshed,
   onOpenSkillLab,
   knowledge,
   onReindex,
@@ -99,10 +104,20 @@ export function SettingsPanel({
 
   // One debouncer for the whole dialog, so a slider drag and the text field
   // next to it coalesce into a single PATCH.
-  const { push, flush } = useDebouncedPatch(onPatchSettings);
+  const { push, flush, cancel } = useDebouncedPatch(onPatchSettings);
 
   const values = settings?.values ?? {};
   const overridden = settings?.overridden ?? [];
+
+  // Reopening lands on General rather than wherever the last visit ended:
+  // Settings is entered from one generic trigger with no memory of intent, so
+  // the last tab is not a better guess than the first, and a dialog that opens
+  // somewhere different each time is harder to navigate by muscle memory.
+  // Keyed on `open` rather than done in `handleClose` so the paths that bypass
+  // it are covered too — App closes Settings itself when the Skill Lab opens.
+  useEffect(() => {
+    if (!open) setActiveTab("general");
+  }, [open]);
 
   // `useDebouncedPatch` flushes on *unmount*, and this component never unmounts
   // — App renders it unconditionally and only toggles `open`. So closing is
@@ -116,20 +131,41 @@ export function SettingsPanel({
   async function handleReset(group: SettingsGroup) {
     try {
       setError(null);
-      // A reset invalidates whatever is queued for the same group.
-      flush();
-      await resetSettings({ group });
-      // App owns `appSettings`; the only channel back to it is
-      // `onPatchSettings`. An empty PATCH is a server-side no-op that still
-      // returns the full post-reset payload, so App re-renders with the
-      // defaults restored.
-      onPatchSettings({});
+      // Discard the queue, do NOT flush it. A reset supersedes whatever is
+      // pending; flushing would put a PATCH in flight alongside the reset with
+      // no ordering guarantee, and a PATCH landing second silently undoes it.
+      cancel();
+      // `resetSettings` already resolves to the full post-reset payload, so
+      // hand that straight to App. (An earlier version PATCHed `{}` to re-read
+      // it — not the no-op it looked like: `PreferencesStore.patch` rewrites
+      // preferences.json unconditionally, which creates the file when absent,
+      // strips hand-added unknown keys, and clobbers an unparseable file
+      // with `{}`.)
+      onSettingsRefreshed(await resetSettings({ group }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Reset failed");
     }
   }
 
-  const panelProps = { values, overridden, patch: push, devMode };
+  // Two write channels, deliberately not one.
+  //
+  // `patchNow` is the default for anything click-driven. `ToggleRow` and
+  // `SegmentedRow` derive what they display purely from `values`, which only
+  // changes when the PATCH response lands — so debouncing them does not hide
+  // latency, it *adds* the whole window to it, and their `!current` handlers
+  // close over server state that has not moved yet, so two taps inside one
+  // window compute the same payload and coalesce into a single net flip.
+  //
+  // `patchDebounced` is only for `SliderRow` / `TextRow`, which render from
+  // their own local state and would otherwise emit one request and one JSON
+  // file write per keystroke or per 0.1 of temperature drag.
+  const panelProps = {
+    values,
+    overridden,
+    patchDebounced: push,
+    patchNow: onPatchSettings,
+    devMode,
+  };
 
   function renderPanel() {
     switch (activeTab) {

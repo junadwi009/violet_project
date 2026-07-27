@@ -4,12 +4,14 @@ import { SectionHeader } from "../controls/SectionHeader";
 import { SliderRow } from "../controls/SliderRow";
 import type { PanelProps } from "../SettingsShell";
 
-// `web_search_model` is in the backend's `model` group but renders next to the
-// web-search toggle in `BehaviorPanel`, so it is counted there, not here — one
-// key, one "changed" dot.
+// Exactly `keys_in_group("model")` from `preferences/store.py`. That includes
+// `web_search_model`, which *renders* next to the web-search toggle in
+// `BehaviorPanel` but is reset by this panel's button — so this panel is the one
+// that must show the dot for it. Task 12/13 decides where the input lives.
 const MODEL_KEYS = [
   "llm_model",
   "temperature",
+  "web_search_model",
   "persona_model",
   "technical_model",
   "artifact_model",
@@ -20,7 +22,7 @@ const MODEL_KEYS = [
 export function ModelPanel({
   values,
   overridden,
-  patch,
+  patchDebounced,
   devMode,
   providers,
   selectedProvider,
@@ -36,6 +38,12 @@ export function ModelPanel({
 }) {
   const modified = MODEL_KEYS.some((key) => overridden.includes(key));
   const temperature = Number(values.temperature ?? 0.2);
+
+  // Every section below is `devMode`-gated, so outside developer mode this
+  // panel would be a lone header over nothing, with a live "Reset section"
+  // button for controls the user cannot see. The nav hides this tab in user
+  // mode; this covers the window where the mode flips while it is open.
+  if (!devMode) return null;
 
   return (
     <div className="space-y-6">
@@ -109,7 +117,9 @@ export function ModelPanel({
             min={0}
             max={2}
             step={0.1}
-            onChange={(next) => patch({ temperature: next })}
+            // `SliderRow` holds its own value, so the debounce is invisible
+            // here and saves a request per 0.1 step of the drag.
+            onChange={(next) => patchDebounced({ temperature: next })}
           />
         </div>
       )}

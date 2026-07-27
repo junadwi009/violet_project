@@ -711,6 +711,7 @@ export function App() {
         skills={skills}
         settings={appSettings}
         onPatchSettings={handlePatchSettings}
+        onSettingsRefreshed={setAppSettings}
         onOpenSkillLab={() => {
           setSettingsOpen(false);
           setSkillLabOpen(true);

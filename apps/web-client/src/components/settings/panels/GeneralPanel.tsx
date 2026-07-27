@@ -23,7 +23,7 @@ function personaLabel(profile: PersonalityProfile): string {
 export function GeneralPanel({
   values,
   overridden,
-  patch,
+  patchNow,
   personalities,
   personalityId,
   onSelectPersonality,
@@ -50,7 +50,8 @@ export function GeneralPanel({
         label="Mode"
         value={mode}
         options={MODE_OPTIONS}
-        onSelect={(next) => patch({ ui_mode: next })}
+        // Click-driven and rendered from `values` — undebounced on purpose.
+        onSelect={(next) => patchNow({ ui_mode: next })}
       />
 
       <div>
