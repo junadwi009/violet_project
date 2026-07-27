@@ -136,6 +136,15 @@ export function App() {
 
   const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer>>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // The composer's speak toggle is session-local state, but it should start
+  // from the persisted `auto_speak` preference rather than always defaulting
+  // to off — otherwise a user who turned auto-speak on in Settings would see
+  // the composer button lie ("Enable speech output") while replies spoke
+  // anyway (the old `speechOutputEnabled || auto_speak` OR at the send site
+  // papered over exactly that). Seed once, the first time settings arrive, so
+  // a deliberate mid-session tap on the button is never clobbered by a later
+  // settings refresh (e.g. after a group reset).
+  const speechOutputSeededRef = useRef(false);
 
   const speechInputAvailable = canRecognizeSpeech();
   const speechOutputAvailable = canSpeak();
@@ -247,6 +256,12 @@ export function App() {
   }, [appSettings]);
 
   useEffect(() => {
+    if (!appSettings || speechOutputSeededRef.current) return;
+    speechOutputSeededRef.current = true;
+    setSpeechOutputEnabled(appSettings.values.auto_speak === true);
+  }, [appSettings]);
+
+  useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, status.tone]);
 
@@ -300,12 +315,12 @@ export function App() {
         },
       ]);
 
-      // Two independent triggers can ask for the same reply to be spoken: the
-      // session-local composer toggle (`speechOutputEnabled`) and the
-      // persisted `auto_speak` preference. Route both through one call so
-      // having both on doesn't fire `speakText` twice (it cancels+restarts
-      // internally, which would just cut the first utterance short).
-      if (speechOutputEnabled || appSettings?.values.auto_speak === true) {
+      // `speechOutputEnabled` is the single source of truth for whether this
+      // reply gets spoken. It starts seeded from the persisted `auto_speak`
+      // preference (see the effect above) and the composer button is the
+      // only thing that can change it afterward — so the button's label/icon
+      // and actual speak-or-not behavior always agree, in both directions.
+      if (speechOutputEnabled) {
         setAvatarState("speaking");
         speakText(response.text, voiceSettingsFromValues(appSettings), () =>
           setAvatarState("idle"),
