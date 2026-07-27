@@ -200,22 +200,42 @@ export async function sendChat(
   });
 }
 
+export type SettingsValues = Record<string, string | number | boolean>;
+
 export type AppSettings = {
-  values: Record<string, string | number | boolean>;
-  defaults: Record<string, string | number | boolean>;
+  values: SettingsValues;
+  defaults: SettingsValues;
   overridden: string[];
+  locked: Record<string, string | number | boolean>;
 };
+
+export type SettingsGroup =
+  | "general"
+  | "appearance"
+  | "model"
+  | "behavior"
+  | "voice"
+  | "knowledge";
 
 export async function fetchSettings(): Promise<AppSettings> {
   return requestJson<AppSettings>("/api/settings");
 }
 
 export async function patchSettings(
-  changes: Record<string, string | number | boolean>,
+  changes: SettingsValues,
 ): Promise<AppSettings> {
   return requestJson<AppSettings>("/api/settings", {
     method: "PATCH",
     body: JSON.stringify(changes),
+  });
+}
+
+export async function resetSettings(
+  target: { group: SettingsGroup } | { keys: string[] },
+): Promise<AppSettings> {
+  return requestJson<AppSettings>("/api/settings/reset", {
+    method: "POST",
+    body: JSON.stringify(target),
   });
 }
 
@@ -469,6 +489,130 @@ export async function updateMemory(memory: Memory): Promise<Memory> {
 
 export async function deleteMemory(id: string): Promise<void> {
   await requestJson(`/api/memory/${id}`, { method: "DELETE" });
+}
+
+export type DeleteReport = {
+  deleted_sessions: number;
+  deleted_messages: number;
+  deleted_candidates: number;
+  deleted_agent_runs: number;
+};
+
+export async function deleteSession(id: string): Promise<DeleteReport> {
+  return requestJson<DeleteReport>(`/api/sessions/${id}`, { method: "DELETE" });
+}
+
+export async function deleteAllSessions(): Promise<DeleteReport> {
+  return requestJson<DeleteReport>("/api/sessions", { method: "DELETE" });
+}
+
+// --- Export ---
+//
+// GET /api/export is gated behind a bearer token (VIOLET_API_TOKEN on the
+// server). A plain anchor-tag download link cannot carry an Authorization
+// header, so a bare URL is not usable here -- the request has to be made
+// with fetch, and the resulting blob turned into a download manually.
+//
+// The two failure modes that matter to callers are distinct and must not be
+// collapsed into one generic failure message:
+//   - 503: the *server* has no VIOLET_API_TOKEN configured at all. Export is
+//     disabled outright; no client token would help.
+//   - 401: the server has a token configured, but the client's token
+//     (VITE_VIOLET_API_TOKEN) is missing or does not match.
+// ExportOutcome is a discriminated union so callers can branch on
+// error.kind instead of matching on message strings.
+
+export type ExportError =
+  | { kind: "client_token_missing" }
+  | { kind: "server_not_configured" }
+  | { kind: "unauthorized" }
+  | { kind: "http_error"; status: number; detail: string }
+  | { kind: "network_error"; message: string };
+
+export type ExportOutcome =
+  | { ok: true; filename: string }
+  | { ok: false; error: ExportError };
+
+function parseContentDispositionFilename(
+  header: string | null,
+): string | null {
+  if (!header) return null;
+  const starMatch = /filename\*=(?:UTF-8'')?"?([^";]+)"?/i.exec(header);
+  if (starMatch) {
+    try {
+      return decodeURIComponent(starMatch[1]);
+    } catch {
+      return starMatch[1];
+    }
+  }
+  const plainMatch = /filename="?([^";]+)"?/i.exec(header);
+  return plainMatch ? plainMatch[1] : null;
+}
+
+/** Downloads the export bundle from GET /api/export.
+ *
+ * Requires VITE_VIOLET_API_TOKEN to be set in the client build/dev env; if
+ * it is not, no request is made (there is no way it could succeed) and
+ * `{ ok: false, error: { kind: "client_token_missing" } }` is returned
+ * immediately.
+ */
+export async function downloadExport(): Promise<ExportOutcome> {
+  const token = import.meta.env.VITE_VIOLET_API_TOKEN;
+  if (!token) {
+    return { ok: false, error: { kind: "client_token_missing" } };
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}/api/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        kind: "network_error",
+        message: err instanceof Error ? err.message : String(err),
+      },
+    };
+  }
+
+  if (response.status === 503) {
+    return { ok: false, error: { kind: "server_not_configured" } };
+  }
+  if (response.status === 401) {
+    return { ok: false, error: { kind: "unauthorized" } };
+  }
+  if (!response.ok) {
+    const detail = await response.text();
+    return {
+      ok: false,
+      error: {
+        kind: "http_error",
+        status: response.status,
+        detail: detail || `Request failed with ${response.status}`,
+      },
+    };
+  }
+
+  const blob = await response.blob();
+  const filename =
+    parseContentDispositionFilename(
+      response.headers.get("Content-Disposition"),
+    ) ?? "violet-export.json";
+
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  // Deferred so the browser has a tick to pick up the object URL before it
+  // is revoked; revoking synchronously has been flaky in some browsers.
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+
+  return { ok: true, filename };
 }
 
 export { apiBaseUrl };
