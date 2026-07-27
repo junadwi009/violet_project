@@ -231,8 +231,13 @@ message, was reachable as a single destructive cross-origin call.
 5173 and the `dev` script passes `--host 127.0.0.1`, so the dev origin is
 `http://127.0.0.1:5173` — allowlisted. `apps/web-client/nginx.conf` reverse
 proxies `/api/` to `assistant-core:8000`, so the container case is same-origin
-and never consults CORS at all. Nothing legitimate was dropped; no origin needed
-adding.
+and never consults CORS at all. **Correction (fix pass, this pass):** the
+original audit was wrong — `package.json`'s `preview` script
+(`vite preview --host 127.0.0.1`) does not honor `server.port` from
+`vite.config.ts` and serves on `4173` by default, a legitimate, repo-shipped
+way of serving the client that the original `client_origins` set did not
+cover. `http://localhost:4173` and `http://127.0.0.1:4173` have now been added
+to `client_origins`.
 
 **What this does and does not buy.** CORS is enforced by the *browser*, not the
 server. It stops a hostile web page from reading these responses, which is the
@@ -275,17 +280,23 @@ Backend on `127.0.0.1:8000` (via `.venv`), Vite dev client on
   middleware, same verdict, but no risk to the developer's live database if the
   hardening had been wrong.
 
-### Known caveat — Vite `strictPort: false`
+### Vite `strictPort` trap — fixed (fix pass, this pass)
 
-`vite.config.ts` sets `strictPort: false`, so if 5173 is already occupied Vite
-silently starts on 5174 and the client's origin is then **not** allowlisted:
-every API call fails with an opaque `TypeError: Failed to fetch`. This is not a
-regression introduced by anything but the tightening itself — the old regex
-papered over it. It was not hit during verification (5173 was free) and is not
-fixed here, because frontend changes are out of scope for this task. The right
-follow-up is `strictPort: true`, so the dev server fails loudly on a port clash
-instead of coming up on an origin the API will reject. Adding 5174 to
-`client_origins` would only move the problem to 5175.
+`vite.config.ts` set `strictPort: false`, so if 5173 was already occupied Vite
+would silently start on 5174 — an origin `client_origins` does not allowlist.
+The fetch itself throws an opaque `TypeError: Failed to fetch` in code (the
+`TypeError` carries no mention of CORS), but the browser console is not silent
+about it: Chrome logs an explicit `Access to fetch at '...' from origin
+'http://127.0.0.1:5174' has been blocked by CORS policy: No
+'Access-Control-Allow-Origin' header is present on the requested resource.`
+alongside the `TypeError`, so a developer looking at DevTools does get a
+direct hint. This was not hit during the original verification (5173 was
+free). **Fixed here:** `strictPort: true`, so a busy port now aborts the dev
+server at startup with a clear error instead of silently relocating it to a
+rejected origin — a deliberate DX tradeoff (a port clash now fails loudly
+rather than producing a confusing runtime CORS failure). Adding 5174 to
+`client_origins` would only have moved the problem to 5175, so that was not
+done.
 
 ## Why
 Task 6 makes "clear all sessions" possible from the UI; Task 7 exists so a
@@ -336,6 +347,14 @@ a shared drive, and the safety-flag block (`allow_shell_tools`,
 - Task 7c: `services/assistant-core/tests/test_cors.py` (new) — 39 tests
   pinning the allowlist, the disallowed origins, the refused preflights, the
   absent credentials header, and the absence of the regex argument.
+- Task 7c fix pass (this pass, review of `7536320`): `main.py` — added
+  `http://localhost:4173` / `http://127.0.0.1:4173` (vite preview's default
+  port) to `client_origins`, with a comment. `test_cors.py` — moved
+  `http://localhost:4173` from `DISALLOWED_ORIGINS` to the allowed-origin
+  parametrization (and added `http://127.0.0.1:4173` alongside it), replacing
+  it in `DISALLOWED_ORIGINS` with `http://localhost:4174` (an unallowlisted
+  neighbor port) so the disallowed-origin coverage is not weakened.
+  `apps/web-client/vite.config.ts` — `strictPort: false` → `true`.
 
 ## Interfaces / contracts changed
 - `SQLiteStore.delete_session(session_id: str) -> dict[str, int]` — raises
@@ -526,6 +545,20 @@ next. One operational item is **open and needs a human**: rotate
     above, including the browser-level mutation in which the attacker page read
     3198 bytes of real sessions and 566 bytes of real memories with the regex
     restored, and nothing with it removed.
+- **Task 7c fix pass** (this pass, addressing review findings on `7536320`):
+  - `python -m pytest services/assistant-core/tests/test_cors.py -q` after
+    adding the two 4173 origins and moving the test case → **41 passed** (39
+    baseline + 2 new parametrizations of `test_allowed_origin_is_echoed` for
+    `http://localhost:4173` and `http://127.0.0.1:4173`).
+  - Mutation: removed the two new 4173 entries from `client_origins` in
+    `main.py` again and re-ran the same command → **2 failed, 39 passed**,
+    both failures exactly
+    `test_allowed_origin_is_echoed[http://localhost:4173]` and
+    `test_allowed_origin_is_echoed[http://127.0.0.1:4173]`. Confirms the test
+    actually pins the fix rather than passing regardless. `main.py` restored
+    to the fix (`diff` against a pre-mutation copy showed no difference).
+  - Full suite `python -m pytest` (repo root) → **301 passed** (299 baseline +
+    2 new).
 
 **Interpreter note.** The repo `.venv` lacks `httpx` and `pytest-asyncio`, so
 the suite cannot be collected there; `.venv` was **not** modified. All pytest
@@ -549,10 +582,9 @@ have `violet_assistant` installed editable and does not need `httpx`.
   `/api/export` unauthenticated, including `DELETE /api/sessions`.
 - **Rotate `VIOLET_API_TOKEN`** — see the Operational section above. Unresolved,
   needs a human.
-- `apps/web-client/vite.config.ts` should set `strictPort: true`. With
-  `strictPort: false` a busy 5173 silently moves the dev server to 5174, an
-  origin the tightened allowlist rejects, producing opaque `Failed to fetch`
-  errors. Out of scope for task 7c (frontend), but it is now a real trap.
+- `apps/web-client/vite.config.ts` now sets `strictPort: true` (fix pass). A
+  busy 5173 aborts the dev server instead of silently moving it to 5174, an
+  origin the tightened allowlist rejects. Resolved.
 - No pagination or size cap on `GET /api/export` — for a local-first
   single-user SQLite deployment this is fine at current scale; would need
   revisiting if session/message volume grows large enough to make the

@@ -221,6 +221,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         "http://127.0.0.1:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        # `npm run preview` (vite preview) does not honor `server.port` from
+        # vite.config.ts and serves on 4173 by default.
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
     }
     # `client_origins` above is the single source of allowed origins. There is
     # deliberately no `allow_origin_regex`: an earlier

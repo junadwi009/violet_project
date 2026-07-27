@@ -35,7 +35,10 @@ PUBLIC_CLIENT_URL = "http://localhost:5173"
 DISALLOWED_ORIGINS = [
     "http://localhost:31337",
     "http://127.0.0.1:31337",
-    "http://localhost:4173",  # vite preview — plausible, still not allowlisted
+    # A neighbor of the allowlisted `vite preview` port (4173, see
+    # `test_allowed_origin_is_echoed`) that must still be rejected — proves the
+    # allowlist admits exactly 4173, not every port near it.
+    "http://localhost:4174",
     "https://evil.example",
     "http://evil.example",
 ]
@@ -99,6 +102,11 @@ def _preflight(client: TestClient, path: str, origin: str, method: str, headers:
         "http://localhost:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        # `npm run preview` (vite preview) does not honor `server.port` and
+        # serves on 4173 by default — a legitimate, repo-shipped way of
+        # serving the client, so it must be allowlisted.
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
     ],
 )
 def test_allowed_origin_is_echoed(client, origin):
