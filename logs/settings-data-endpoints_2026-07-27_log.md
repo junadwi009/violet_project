@@ -90,6 +90,10 @@ reaches for the destructive one.
    wildcard and `allow_credentials` from the `CORSMiddleware` config in
    `main.py`. See the dedicated section below.
 
+6. **Exposed `Content-Disposition` cross-origin** (task 7d, this pass) — added
+   `expose_headers=["Content-Disposition"]` to the same `CORSMiddleware` call.
+   See the dedicated section below.
+
 ## Task 7b — gating the export endpoint
 
 Not in the original plan; added by user decision on 2026-07-27 after a review
@@ -298,6 +302,33 @@ rather than producing a confusing runtime CORS failure). Adding 5174 to
 `client_origins` would only have moved the problem to 5175, so that was not
 done.
 
+## Task 7d — exposing `Content-Disposition` cross-origin
+
+The new `downloadExport()` client function in `apps/web-client/src/lib/api.ts`
+(landed at `7f01d4d`, this branch's HEAD before this pass) reads
+`Content-Disposition` off the `/api/export` response to name the downloaded
+file `violet-export-YYYYMMDD-HHMMSS.json`. Task 7c's `CORSMiddleware` call had
+no `expose_headers`, which defaults to `[]`, and `Content-Disposition` is not
+in the small header safelist CORS exposes to cross-origin `fetch()` by
+default. In the standard dev setup (client on 5173, API on 8000, same
+allowed-origin case task 7c hardened) `response.headers.get('content-disposition')`
+therefore read back `null` and the client silently fell back to a generic
+`violet-export.json`. One line: `expose_headers=["Content-Disposition"]`
+added to the existing `add_middleware(CORSMiddleware, ...)` call, plus a
+comment above it explaining why. Nothing else in the CORS config changed —
+`client_origins`, `allow_credentials=False`, and the deliberate absence of
+`allow_origin_regex` (task 7c) are untouched.
+
+Pinned with `test_export_content_disposition_is_exposed_cross_origin` in
+`test_cors.py`: builds a real `create_app()`, hits the actually-gated
+`GET /api/export` with an allowed `Origin` and a valid bearer token (reusing
+the `test_export._app_settings` token pattern via `dataclasses.replace`), and
+asserts both that the response carries `content-disposition` and that
+`access-control-expose-headers` contains it — so the test fails the way the
+real client bug would (header present on the response, but not readable
+cross-origin) rather than asserting on the middleware call's arguments
+directly.
+
 ## Why
 Task 6 makes "clear all sessions" possible from the UI; Task 7 exists so a
 backup path is available *before* that control is ever exposed — the Data
@@ -355,6 +386,12 @@ a shared drive, and the safety-flag block (`allow_shell_tools`,
   it in `DISALLOWED_ORIGINS` with `http://localhost:4174` (an unallowlisted
   neighbor port) so the disallowed-origin coverage is not weakened.
   `apps/web-client/vite.config.ts` — `strictPort: false` → `true`.
+- Task 7d: `services/assistant-core/src/violet_assistant/main.py` — added
+  `expose_headers=["Content-Disposition"]` to the `CORSMiddleware` call, plus
+  an explanatory comment. No other production file changed.
+- Task 7d: `services/assistant-core/tests/test_cors.py` —
+  `test_export_content_disposition_is_exposed_cross_origin` (new), plus
+  `EXPORT_TOKEN` constant.
 
 ## Interfaces / contracts changed
 - `SQLiteStore.delete_session(session_id: str) -> dict[str, int]` — raises
@@ -391,6 +428,11 @@ a shared drive, and the safety-flag block (`allow_shell_tools`,
   the origin to `client_origins`, or set `PUBLIC_CLIENT_URL`. Non-browser
   clients (`curl`, scripts, the container's same-origin nginx proxy) are
   unaffected. Task 7c added no env vars.
+- Task 7d: `GET /api/export` response now also carries
+  `Access-Control-Expose-Headers: Content-Disposition` on any CORS response
+  (simple or preflight-approved), so a cross-origin `fetch()` from an
+  allowed origin can read `response.headers.get('content-disposition')`.
+  Purely additive; no other header or status code changed. No env vars added.
 
 ## Operational — ACTION REQUIRED: rotate `VIOLET_API_TOKEN`
 This machine's git-ignored `.env` is gated by `change_me_local_dev` — the value
@@ -413,7 +455,7 @@ reading the logs. This item is **not** resolved by task 7c — CORS is
 browser-enforced, and a known token plus `curl` bypasses it entirely.
 
 ## Status
-done — Phase B (tasks 6–7, plus the out-of-plan tasks 7b and 7c) complete.
+done — Phase B (tasks 6–7, plus the out-of-plan tasks 7b, 7c and 7d) complete.
 Phase B is the last phase of the backend track; Phase C/D (frontend) starts
 next. One operational item is **open and needs a human**: rotate
 `VIOLET_API_TOKEN` (see Operational above).
@@ -559,6 +601,18 @@ next. One operational item is **open and needs a human**: rotate
     to the fix (`diff` against a pre-mutation copy showed no difference).
   - Full suite `python -m pytest` (repo root) → **301 passed** (299 baseline +
     2 new).
+- **Task 7d** (this pass; system interpreter):
+  - `python -m pytest services/assistant-core/tests/test_cors.py -q` →
+    **42 passed** (41 baseline + 1 new).
+  - Mutation: removed `expose_headers=["Content-Disposition"]` from the
+    `CORSMiddleware` call in `main.py` and re-ran the same command →
+    **1 failed, 41 passed** — exactly
+    `test_export_content_disposition_is_exposed_cross_origin`,
+    `AssertionError: assert 'Content-Disposition' in ''`. Confirms the test
+    fails without the fix rather than passing regardless. `main.py` restored
+    (`git diff` against the pre-mutation state showed no difference).
+  - Full suite `python -m pytest` (repo root) → **302 passed** (301 baseline +
+    1 new), ~93s, no flaky `test_agent_loop.py` error this run.
 
 **Interpreter note.** The repo `.venv` lacks `httpx` and `pytest-asyncio`, so
 the suite cannot be collected there; `.venv` was **not** modified. All pytest

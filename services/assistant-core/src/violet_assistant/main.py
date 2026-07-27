@@ -243,12 +243,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # only credential is the `Authorization: Bearer` header on `/api/export`
     # (unaffected by this flag), and True alongside `allow_headers=["*"]` is a
     # spec violation browsers handle inconsistently.
+    #
+    # `expose_headers` must name `Content-Disposition` explicitly: `GET
+    # /api/export` sets it to carry the timestamped download filename, but the
+    # CORS spec only exposes a small safelist of response headers to
+    # cross-origin `fetch()` by default (`Content-Disposition` is not in it),
+    # so without this a cross-origin client's `response.headers.get(...)`
+    # returns null and any filename-from-header logic silently falls back to a
+    # generic name.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=sorted(client_origins),
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["Content-Disposition"],
     )
     app.include_router(create_health_router(active_settings, provider, personality_loader))
     app.include_router(create_personality_router(personality_loader))

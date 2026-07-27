@@ -29,6 +29,7 @@ from violet_assistant.config import load_settings
 
 ALLOWED_ORIGIN = "http://127.0.0.1:5173"
 PUBLIC_CLIENT_URL = "http://localhost:5173"
+EXPORT_TOKEN = "cors-expose-headers-token"
 
 # Origins that must NOT be echoed back. The localhost ones are the point of this
 # task: they are exactly what `allow_origin_regex` used to wave through.
@@ -148,6 +149,38 @@ def test_preflight_from_an_allowed_origin_still_permits_authorization(client):
     assert response.headers.get("access-control-allow-origin") == ALLOWED_ORIGIN
     allowed = response.headers.get("access-control-allow-headers", "").lower()
     assert "authorization" in allowed or allowed == "*"
+
+
+def test_export_content_disposition_is_exposed_cross_origin(tmp_path):
+    """`GET /api/export` sets `Content-Disposition` to carry the timestamped
+    download filename (`violet-export-YYYYMMDD-HHMMSS.json`, see
+    `test_export.test_export_serves_the_unchanged_bundle_with_the_correct_token`).
+
+    Without `expose_headers=["Content-Disposition"]` on the middleware, a
+    cross-origin `fetch()` from an allowed origin still gets the 200 response
+    but `response.headers.get('content-disposition')` reads back `null` — the
+    header safelist CORS exposes by default does not include it — so a client
+    reading the filename off that header silently falls back to a generic
+    name. This exercises the real gated endpoint end-to-end (allowed origin +
+    valid bearer token) rather than asserting on the middleware config
+    directly, so it fails the way the actual client-side bug would.
+    """
+    from violet_assistant.main import create_app
+
+    settings = replace(_app_settings(tmp_path), violet_api_token=EXPORT_TOKEN)
+    with TestClient(create_app(settings)) as test_client:
+        response = test_client.get(
+            "/api/export",
+            headers={
+                "Origin": ALLOWED_ORIGIN,
+                "Authorization": f"Bearer {EXPORT_TOKEN}",
+            },
+        )
+
+    assert response.status_code == 200
+    assert "content-disposition" in response.headers
+    exposed = response.headers.get("access-control-expose-headers", "")
+    assert "Content-Disposition" in exposed
 
 
 # --- disallowed origins ----------------------------------------------------
