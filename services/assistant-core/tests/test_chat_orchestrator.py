@@ -4,11 +4,15 @@ import asyncio
 import json
 from pathlib import Path
 
+import pytest
+
 from violet_assistant.config import Settings
 from violet_assistant.llm.mock_provider import MockLLMProvider
 from violet_assistant.orchestrator.chat_orchestrator import ChatOrchestrator
 from violet_assistant.persistence.sqlite_store import SQLiteStore
 from violet_assistant.personality.loader import PersonalityLoader
+from violet_assistant.preferences.resolver import ModelResolver
+from violet_assistant.preferences.store import PreferencesStore
 from violet_assistant.schemas.chat import ChatRequest
 
 
@@ -404,3 +408,113 @@ def test_agent_loop_pause_surfaces_tool_requests_and_run_id(tmp_path) -> None:
     assert response.tool_requests[0]["tool"] == "fetch_url"
     assert response.tool_trace[0]["status"] == "awaiting_approval"
     assert store.get_agent_run(response.agent_run_id)["status"] == "awaiting_approval"
+
+
+# --- Blank-override guard for the two model keys not routed through ModelResolver
+# directly (task 13 review finding) ------------------------------------------------
+#
+# `llm_model` and `web_search_model` are resolved inline in chat_orchestrator.py
+# rather than by calling ModelResolver.resolve() at the call site the way the other
+# five model keys are (cascade, skill engine, agent registry, vision OCR). These
+# mirror test_blank_override_falls_back in test_model_resolver.py, but assert on the
+# value that actually reaches the provider/request payload — not just what a helper
+# returns — since that is what silently regressed here before.
+
+
+class _RecordingProvider:
+    """Captures every ``options.model`` passed to ``chat()``."""
+
+    name = "stub"
+
+    def __init__(self, reply: str = "ok") -> None:
+        self._reply = reply
+        self.models: list[str] = []
+
+    async def chat(self, messages, options):
+        from violet_assistant.llm.base import LLMResponse
+
+        self.models.append(options.model)
+        return LLMResponse(text=self._reply, emotion="focused")
+
+    async def health(self):  # pragma: no cover
+        raise NotImplementedError
+
+
+class _RecordingWebProvider:
+    """Like ``_FakeWebProvider`` but records the exact model id sent, not just its
+    ``:online`` suffix — ``"" + ":online"`` also ends with ``:online``, so a suffix
+    check alone would not catch a blank override reaching the request payload."""
+
+    name = "web"
+
+    def __init__(self) -> None:
+        self.models: list[str] = []
+
+    def _request_json(self, method, path, payload):
+        self.models.append(payload["model"])
+        return {"choices": [{"message": {"content": "web says hi", "annotations": []}}]}
+
+    async def chat(self, messages, options):  # pragma: no cover - unused
+        raise NotImplementedError
+
+    async def health(self):  # pragma: no cover - unused
+        raise NotImplementedError
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_llm_model_blank_override_falls_back_to_settings(tmp_path, blank) -> None:
+    personality_dir = _write_personality(tmp_path)
+    settings = _settings(tmp_path, personality_dir)
+    prefs = PreferencesStore(tmp_path / "preferences.json")
+    prefs.patch({"llm_model": blank})
+    provider = _RecordingProvider()
+    orchestrator = ChatOrchestrator(
+        settings=settings,
+        provider=provider,
+        personality_loader=PersonalityLoader(personality_dir),
+        store=_store(settings),
+        preferences=prefs,
+        resolver=ModelResolver(prefs, settings),
+    )
+
+    asyncio.run(
+        orchestrator.chat(ChatRequest(content="hello", personality_id="violet.default"))
+    )
+
+    # The model that actually reached the provider must be the Settings default,
+    # not the blanked-out override — a bare dict.get(..., default) never applies
+    # this fallback because _defaults() always seeds the key.
+    assert provider.models == [settings.llm_model]
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_web_search_model_blank_override_falls_back_to_settings(tmp_path, blank) -> None:
+    personality_dir = _write_personality(tmp_path)
+    settings = _settings(tmp_path, personality_dir)
+    prefs = PreferencesStore(tmp_path / "preferences.json")
+    prefs.patch({"web_search_model": blank})
+    web_provider = _RecordingWebProvider()
+    orchestrator = ChatOrchestrator(
+        settings=settings,
+        provider=MockLLMProvider(),
+        personality_loader=PersonalityLoader(personality_dir),
+        store=_store(settings),
+        preferences=prefs,
+        web_provider=web_provider,
+        resolver=ModelResolver(prefs, settings),
+    )
+
+    asyncio.run(
+        orchestrator.chat(
+            ChatRequest(
+                content="what is the latest news?",
+                personality_id="violet.default",
+                web_search=True,
+            )
+        )
+    )
+
+    # The observable failure this guards against: a blank web_search_model must
+    # never reach web_answer() as "", which web/search.py turns into ":online".
+    assert web_provider.models == [f"{settings.web_search_model}:online"]
+    assert ":online" not in web_provider.models

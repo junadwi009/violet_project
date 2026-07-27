@@ -18,6 +18,7 @@ from violet_assistant.agents.registry import AgentRegistry
 from violet_assistant.agents.runner import AgentRunner
 
 if TYPE_CHECKING:
+    from violet_assistant.preferences.resolver import ModelResolver
     from violet_assistant.preferences.store import PreferencesStore
 
 
@@ -38,6 +39,7 @@ class ChatOrchestrator:
         preferences: "PreferencesStore | None" = None,
         web_provider: LLMProvider | None = None,
         agent_loop=None,
+        resolver: "ModelResolver | None" = None,
     ) -> None:
         self.settings = settings
         self.provider = provider
@@ -53,6 +55,10 @@ class ChatOrchestrator:
         self.preferences = preferences
         self.web_provider = web_provider
         self.agent_loop = agent_loop
+        # Blank-guarded model lookup (see ModelResolver) — falls back to a plain
+        # dict.get when no resolver is wired (e.g. older test doubles), matching
+        # this class's pre-Task-13 behaviour rather than raising.
+        self.model_resolver = resolver
 
     async def _run_agent_loop(self, agent, messages, session_id: str, state: dict) -> str:
         """Run the tool loop, folding its output into the response state.
@@ -80,6 +86,20 @@ class ChatOrchestrator:
             state["tool_requests"] = outcome.pending
             return outcome.text or "I need your approval before continuing."
         return outcome.text
+
+    def _resolve_model(self, key: str, prefs: dict) -> str:
+        """Look up a model-id preference, never letting a blank override through.
+
+        Routes through the same ``ModelResolver`` the other five model keys use
+        (cascade/skill-engine/agent-registry/vision) so an emptied override falls
+        back to ``Settings`` instead of shipping ``model=""`` to a provider — see
+        ``ModelResolver.resolve``. Falls back to the pre-resolver ``dict.get``
+        only when no resolver was wired in (kept for callers/tests that construct
+        ``ChatOrchestrator`` without one).
+        """
+        if self.model_resolver is not None:
+            return self.model_resolver.resolve(key)
+        return prefs.get(key, getattr(self.settings, key))
 
     def _select_provider(self, requested: str | None) -> LLMProvider:
         if requested and requested in self.provider_registry:
@@ -120,7 +140,7 @@ class ChatOrchestrator:
             self.preferences.effective(self.settings) if self.preferences else {}
         )
         base_options = LLMOptions(
-            model=prefs.get("llm_model", self.settings.llm_model),
+            model=self._resolve_model("llm_model", prefs),
             temperature=prefs.get("temperature", self.settings.default_temperature),
             metadata={
                 "personality_id": profile.id,
@@ -181,7 +201,7 @@ class ChatOrchestrator:
 
             answer = await web_answer(
                 self.web_provider,
-                prefs.get("web_search_model", self.settings.web_search_model),
+                self._resolve_model("web_search_model", prefs),
                 messages,
             )
             llm_response = LLMResponse(text=answer.text, emotion="focused")

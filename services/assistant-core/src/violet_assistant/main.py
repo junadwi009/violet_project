@@ -160,6 +160,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         skill_engine=skill_engine,
         preferences=preferences,
         web_provider=web_provider,
+        resolver=model_resolver,
     )
 
     agents_dir = active_settings.agents_config_dir or (

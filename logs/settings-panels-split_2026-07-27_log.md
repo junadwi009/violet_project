@@ -539,3 +539,123 @@ done
   `bg-steel-dark text-white` / `bg-white text-steel-dark` pairs (all new
   rows reuse `TextRow`, which already uses the themed `bg-navy-800` token
   per its own comment).
+
+---
+
+# Fix pass — Task 13 review finding (`llm_model` / `web_search_model` bypassed the blank-override guard)
+
+- **Date:** 2026-07-27
+- **Track:** cross-cutting (backend preferences / orchestrator)
+- **Branch:** feat/settings-overhaul
+- **Author:** Claude Code (Task 13 review fix)
+
+## What
+`ModelResolver.resolve()` (Task 3) treats a blank/whitespace-only preference
+override as "unset" and falls back to `Settings`. Five model-id keys go
+through it. Two — `llm_model` and `web_search_model` — were instead read
+inline in `chat_orchestrator.py` via `prefs.get(key, self.settings.key)`,
+whose default arm is dead code (`PreferencesStore._defaults()` always seeds
+both keys, so `.get` never falls through). An emptied field therefore sent
+`model=""` to the provider; for `web_search_model` specifically,
+`web/search.py` builds `online_model = "" + ":online"` and POSTs `":online"`
+as the model id.
+
+Task 13 gave `web_search_model`'s input the same "clear the field to use the
+default" placeholder contract the five resolver-backed fields already
+promise, making the one field where clearing silently breaks the request
+reachable from the UI.
+
+Fixed by giving `ChatOrchestrator` an optional `resolver: ModelResolver`
+(threaded from `main.py`'s existing `model_resolver`, which was already built
+but never passed in) and replacing both inline lookups with a private
+`_resolve_model(key, prefs)` helper that calls `resolver.resolve(key)` when a
+resolver is present, falling back to the old `prefs.get(...)` only for
+callers/tests that construct `ChatOrchestrator` without one.
+
+## Why
+Reused `ModelResolver` rather than hand-rolling a second `.strip() or
+default` guard at each call site, per the review note — a second
+implementation of the same guard is exactly the kind of duplication that lets
+one copy drift from the other (which is how this bug happened: five keys got
+the guard, two didn't). Threading a resolver into `ChatOrchestrator` was not
+awkward — `main.py` already constructs `model_resolver = ModelResolver(preferences,
+active_settings)` and passes it to four other components; it simply was not
+also passed to `ChatOrchestrator`.
+
+## Files touched
+- mod `services/assistant-core/src/violet_assistant/orchestrator/chat_orchestrator.py`
+  — added `resolver: ModelResolver | None = None` constructor param (stored as
+  `self.model_resolver`), added `_resolve_model(key, prefs)` helper, and
+  routed the `llm_model` (base_options) and `web_search_model` (web-search
+  branch) lookups through it. `resolve()` itself and the five keys already
+  using it are unchanged.
+- mod `services/assistant-core/src/violet_assistant/main.py` — passes
+  `resolver=model_resolver` into the existing `ChatOrchestrator(...)` call
+  (one line; `model_resolver` already existed for the other four sites).
+- mod `services/assistant-core/tests/test_chat_orchestrator.py` — new
+  `test_llm_model_blank_override_falls_back_to_settings` and
+  `test_web_search_model_blank_override_falls_back_to_settings`
+  (parametrized over `""` and `"   "`), mirroring
+  `test_blank_override_falls_back` in `test_model_resolver.py` but asserting
+  on the model id that actually reaches the provider/request payload
+  (`_RecordingProvider.models`, `_RecordingWebProvider.models`) rather than a
+  helper's return value. The web-search test asserts the exact resolved
+  payload model, not just a `.endswith(":online")` suffix check (which a
+  blank override also satisfies) — proving `":online"` alone can no longer be
+  produced.
+
+## Interfaces / contracts changed
+- `ChatOrchestrator.__init__` gains one optional keyword arg (`resolver`,
+  default `None`); every existing call site (`main.py`, all pre-existing
+  tests) keeps working unchanged since none passed a resolver before. No
+  route/schema/env-var change. `ModelResolver.resolve()`'s semantics and the
+  five keys already using it are untouched.
+
+## Status
+done
+
+## Verification
+Ran from repo root with the **system interpreter** (repo `.venv` lacks
+`httpx`/`pytest-asyncio`, not touched):
+
+```
+python -m pytest -q
+```
+→ **306 passed**, 237 warnings (pre-existing `on_event`/httpx deprecation
+noise, unrelated), ~90s. 306 = the prior 302 baseline + the 4 new
+parametrized cases.
+
+Targeted run before the full suite:
+```
+python -m pytest services/assistant-core/tests/test_chat_orchestrator.py services/assistant-core/tests/test_model_resolver.py -q
+```
+→ 24 passed.
+
+### Mutation check (the standard on this branch)
+Reverted only the two call sites back to the pre-fix `prefs.get("llm_model",
+self.settings.llm_model)` / `prefs.get("web_search_model",
+self.settings.web_search_model)` (guard removed, `_resolve_model` helper and
+constructor param left in place), then reran the new tests:
+
+```
+python -m pytest services/assistant-core/tests/test_chat_orchestrator.py -k "blank_override" -q
+```
+→ **4 failed** (all four parametrized cases), e.g.
+`AssertionError: assert ['   :online'] == ['deepseek/deepseek-chat-v3.1:online']`
+— confirms the tests fail without the guard, not just pass with it.
+
+Restored both call sites to `self._resolve_model(...)` and reran the full
+suite:
+```
+python -m pytest -q
+```
+→ **306 passed** again, confirming the fix and tests are back to green.
+
+`data/preferences.json` was never touched by this pass (no server was run);
+confirmed via `git status --porcelain` showing no change to it. Real `.env`
+untouched.
+
+## Next
+- None outstanding from this fix. The remaining open item from Task 13's log
+  (Task 17's dark-mode contrast sweep) is unrelated to this backend-only
+  change.
