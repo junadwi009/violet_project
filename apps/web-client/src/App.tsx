@@ -79,6 +79,32 @@ function shortProviderLabel(id: string): string {
   return id;
 }
 
+// The invariant every path that sets `personalityId` / `selectedProvider` has
+// to uphold: the id in state is always one the server actually offers. A
+// preference the server happily stores (`_is_str` accepts any string for
+// `default_personality` / `default_provider`) can name a profile or provider
+// that no longer exists — a persona id that doesn't resolve makes
+// `POST /api/chat` fail with `FileNotFoundError` from the profile loader and
+// leaves the persona picker with nothing selected, since it renders selection
+// by comparing against the fetched list.
+//
+// `desired` is the incoming preference (stored, at bootstrap; post-reset, on a
+// group reset), `current` is what state holds now, `fallback` is the server's
+// own answer for "which one is really active". With nothing fetched there is
+// nothing to validate against, so `current` stands.
+function resolveOffered(
+  desired: string,
+  current: string,
+  offered: readonly { id: string }[],
+  fallback: string,
+): string {
+  if (offered.length === 0) return current;
+  if (desired && offered.some((item) => item.id === desired)) return desired;
+  if (offered.some((item) => item.id === current)) return current;
+  if (fallback && offered.some((item) => item.id === fallback)) return fallback;
+  return offered[0].id;
+}
+
 // Single source of truth for turning stored preferences into the shape
 // `speakText` / `createSpeechRecognizer` expect, so every call site agrees on
 // what "current voice settings" means instead of re-reading `appSettings`
@@ -148,6 +174,10 @@ export function App() {
   // `handleSpeechOutputToggle`), and once it's true a later settings refresh
   // (e.g. after a group reset) never clobbers the user's explicit choice.
   const speechOutputTappedRef = useRef(false);
+  // The server's active provider, kept for `resolveOffered`'s fallback slot on
+  // paths that run long after the bootstrap fetch (the group-reset resync).
+  // A ref, not state: nothing renders it.
+  const activeProviderRef = useRef("mock");
 
   const speechInputAvailable = canRecognizeSpeech();
   const speechOutputAvailable = canSpeak();
@@ -210,44 +240,66 @@ export function App() {
   }
 
   useEffect(() => {
+    // One settings request, consumed twice on purpose.
+    //
+    // `setAppSettings` is independent: theme, dev mode and every panel read it
+    // and none of them care about personalities or providers, so it lands as
+    // soon as the response does even if another bootstrap request fails.
+    //
+    // Seeding `personalityId` / `selectedProvider` from the same payload is
+    // NOT independent — it has to happen in the same ordered step as
+    // validating them against the fetched lists, so `Promise.all` below waits
+    // on this promise too.
+    const settingsPromise = fetchSettings().catch(() => null);
+    settingsPromise.then(setAppSettings);
+
     Promise.all([
       refreshMemory(),
       fetchPersonalities(),
       fetchProviders(),
       fetchSessions(),
+      settingsPromise,
     ])
-      .then(([, nextPersonalities, providerResponse, nextSessions]) => {
+      .then(([, nextPersonalities, providerResponse, nextSessions, settings]) => {
         setPersonalities(nextPersonalities);
-        // Functional updaters, not a read of the `personalityId` /
-        // `selectedProvider` closed over at mount: the `fetchSettings()`
-        // bootstrap below seeds both from the persisted `default_personality`
-        // / `default_provider` in a separate, unordered promise chain within
-        // this same effect. Reading the closed-over value here would race —
-        // sometimes checking the still-hardcoded initial state, sometimes
-        // (depending on which request lands first) missing the seeded value
-        // entirely, since this callback was created once at mount and never
-        // sees renders that happened after it started running. The functional
-        // form always sees whatever is actually in state right now.
-        setPersonalityId((current) =>
-          nextPersonalities.length > 0 &&
-          !nextPersonalities.some((profile) => profile.id === current)
-            ? nextPersonalities[0].id
-            : current,
-        );
         setProviders(providerResponse.items);
-        // Same reasoning as above: a stored `default_provider` that no longer
-        // appears in `providerResponse.items` (provider removed/renamed on
-        // the server) must not leave the UI pointing at a dead id. The
-        // server's active provider is the fallback, not an unconditional
-        // override — see the `fetchSettings()` bootstrap for the seed this
-        // guards.
-        setSelectedProvider((current) =>
-          providerResponse.items.some((item) => item.id === current)
-            ? current
-            : providerResponse.active,
-        );
         setRouterInfo(providerResponse.router ?? null);
         setSessions(nextSessions);
+        activeProviderRef.current = providerResponse.active;
+
+        // Seed-then-validate as ONE step, not two racing ones.
+        //
+        // An earlier version seeded these from a separate `fetchSettings()`
+        // promise chain and validated them in this one. Both orderings were
+        // reachable: with `/api/settings` slow, seed-then-validate corrected a
+        // dead stored id; with `/api/personalities` slow, validate-then-seed
+        // let it survive — persona picker with nothing selected, and every
+        // `POST /api/chat` 500ing out of the profile loader. Functional
+        // updaters do not fix that: they guarantee the guard reads current
+        // state *when it runs*, not that it runs *after* the seed. Awaiting
+        // the same promise removes the ordering question instead of guarding
+        // against it.
+        setPersonalityId((current) =>
+          resolveOffered(
+            String(settings?.values.default_personality ?? ""),
+            current,
+            nextPersonalities,
+            "",
+          ),
+        );
+        // Same for a stored `default_provider` that is no longer offered
+        // (removed or renamed server-side). Milder — the backend degrades
+        // gracefully on an unknown provider — but it renders the raw id as
+        // the composer's provider chip instead of a label. The server's
+        // active provider is the fallback, not an unconditional override.
+        setSelectedProvider((current) =>
+          resolveOffered(
+            String(settings?.values.default_provider ?? ""),
+            current,
+            providerResponse.items,
+            providerResponse.active,
+          ),
+        );
       })
       .catch((error: Error) => setStatus({ tone: "error", text: error.message }));
     fetchMemoryInfo()
@@ -256,28 +308,6 @@ export function App() {
     fetchAgents()
       .then((response) => setAgents(response.enabled ? response.items : []))
       .catch(() => setAgents([]));
-    fetchSettings()
-      .then((settings) => {
-        setAppSettings(settings);
-        // One-time seed from the persisted preference, not a recurring
-        // `useEffect` on `[appSettings]` (contrast `speechOutputEnabled`
-        // above): every later change to persona/provider already goes
-        // through `patchNow`, which round-trips through `setAppSettings`
-        // itself, so `values` and this local state never drift apart on
-        // their own the way `auto_speak` and the composer's local toggle
-        // can. A recurring resync would actively fight the fallback guards
-        // in the personalities/providers bootstrap above — those correct an
-        // invalid stored id locally without patching it back to the server,
-        // so `values.default_personality` / `values.default_provider` can
-        // stay stale on purpose; resyncing from them on every settings
-        // change would undo the fallback the moment any unrelated setting
-        // changes.
-        const persona = String(settings.values.default_personality ?? "");
-        if (persona) setPersonalityId(persona);
-        const provider = String(settings.values.default_provider ?? "");
-        if (provider) setSelectedProvider(provider);
-      })
-      .catch(() => setAppSettings(null));
     fetchSkills()
       .then((response) => setSkills(response.enabled ? response.items : []))
       .catch(() => setSkills([]));
@@ -851,7 +881,36 @@ export function App() {
         skills={skills}
         settings={appSettings}
         onPatchSettings={handlePatchSettings}
-        onSettingsRefreshed={setAppSettings}
+        onSettingsReset={(next) => {
+          setAppSettings(next);
+          // One-shot resync, on this one event — deliberately NOT a recurring
+          // effect keyed on `[appSettings]`. A group reset clears
+          // `default_personality` / `default_provider` server-side; without
+          // this the open picker keeps showing the pre-reset selection while
+          // the section's "modified" dot has already cleared, and the session
+          // keeps *sending* the pre-reset persona and provider on
+          // `/api/chat` until reload. A recurring resync instead would
+          // re-apply a stale stored id after any unrelated PATCH, because the
+          // bootstrap correction above is deliberately not written back to
+          // the server. Resets of other groups leave these keys untouched, so
+          // `resolveOffered` returns `current` and this is a no-op there.
+          setPersonalityId((current) =>
+            resolveOffered(
+              String(next.values.default_personality ?? ""),
+              current,
+              personalities,
+              "",
+            ),
+          );
+          setSelectedProvider((current) =>
+            resolveOffered(
+              String(next.values.default_provider ?? ""),
+              current,
+              providers,
+              activeProviderRef.current,
+            ),
+          );
+        }}
         onOpenSkillLab={() => {
           setSettingsOpen(false);
           setSkillLabOpen(true);

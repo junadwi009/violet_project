@@ -65,8 +65,11 @@ export type SettingsPanelProps = {
   onPatchSettings: (changes: SettingsValues) => void;
   /** App owns `appSettings`. A group reset returns the full post-reset payload
    *  on its own response, so hand it back through here rather than firing a
-   *  second request just to re-read what we already have. */
-  onSettingsRefreshed: (next: AppSettings) => void;
+   *  second request just to re-read what we already have. Named for the event,
+   *  not for "settings changed in general": App also uses it to resync the
+   *  persona/provider it holds outside `values`, which is only correct as a
+   *  one-shot on a reset — see the handler in App.tsx. */
+  onSettingsReset: (next: AppSettings) => void;
   onOpenSkillLab: () => void;
   knowledge: KnowledgeInfo | null;
   onReindex: (full: boolean, source?: string) => void;
@@ -96,7 +99,7 @@ export function SettingsPanel({
   skills,
   settings,
   onPatchSettings,
-  onSettingsRefreshed,
+  onSettingsReset,
   onOpenSkillLab,
   knowledge,
   onReindex,
@@ -148,7 +151,7 @@ export function SettingsPanel({
       // preferences.json unconditionally, which creates the file when absent,
       // strips hand-added unknown keys, and clobbers an unparseable file
       // with `{}`.)
-      onSettingsRefreshed(await resetSettings({ group }));
+      onSettingsReset(await resetSettings({ group }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Reset failed");
     }
