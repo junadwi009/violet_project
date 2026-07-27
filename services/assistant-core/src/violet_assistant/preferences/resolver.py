@@ -18,6 +18,14 @@ class ModelResolver:
         self._settings = settings
 
     def resolve(self, key: str) -> str:
+        # Guard here rather than letting getattr raise a bare AttributeError deep
+        # inside a request: a mistyped key is a wiring bug, and the message should
+        # say so at the layer that owns the key namespace.
+        if not hasattr(self._settings, key):
+            raise KeyError(
+                f"ModelResolver: unknown model key {key!r} — a resolvable key must "
+                "name a Settings attribute to fall back to."
+            )
         fallback = getattr(self._settings, key)
         if self._preferences is None:
             return fallback
