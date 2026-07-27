@@ -110,6 +110,12 @@ class Settings:
     max_tool_iterations: int = 5
     tool_timeout_seconds: float = 120
     max_tool_result_chars: int = 8000
+    # API auth. Currently gates GET /api/export only (a single GET that returns
+    # every session, message and memory). Empty = that endpoint is disabled, not
+    # open: the CORS policy allows any localhost origin with credentials, so a
+    # data-egress endpoint must fail closed until the user opts in. Secret —
+    # never expose via /api/settings (neither EDITABLE_KEYS nor LOCKED_KEYS).
+    violet_api_token: str = ""
 
 
 def load_settings(repo_root: Path | None = None) -> Settings:
@@ -233,6 +239,7 @@ def load_settings(repo_root: Path | None = None) -> Settings:
         max_tool_iterations=int(os.getenv("MAX_TOOL_ITERATIONS", "5")),
         tool_timeout_seconds=float(os.getenv("TOOL_TIMEOUT_SECONDS", "120")),
         max_tool_result_chars=int(os.getenv("MAX_TOOL_RESULT_CHARS", "8000")),
+        violet_api_token=os.getenv("VIOLET_API_TOKEN", ""),
         personality_config_dir=Path(
             os.getenv("PERSONALITY_CONFIG_DIR", str(root / "configs" / "personality"))
         ),
