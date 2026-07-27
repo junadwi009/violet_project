@@ -115,15 +115,16 @@ done — Phase B (tasks 6–7) complete. Phase B is the last phase of the
 backend track; Phase C/D (frontend) starts next.
 
 ## Verification
-- Task 6, first pass (`5915403`): full suite → 237 baseline + delete-session
-  coverage. Task 6, hardening pass (`6d01ae1`): 240 passed (237 baseline − 1
-  removed test + 4 added).
+- Task 6, first pass (`5915403`): full suite → 224 baseline + 13 new
+  delete-session tests = 237 passed. Task 6, hardening pass (`6d01ae1`):
+  240 passed (237 − 1 removed test + 4 added).
 - Task 7 red: `python -m pytest services/assistant-core/tests/test_export.py -q`
   → `ModuleNotFoundError: No module named 'violet_assistant.routes.export'`
   (collection error), before `routes/export.py` existed.
 - Task 7 green: same command → **3 passed**.
 - Full suite after task 7: `python -m pytest` (repo root) → **243 passed**,
-  8 warnings, ~22–29s. (240 at Phase B start + 3 new in `test_export.py`.)
+  8 warnings, ~22–29s. (240 at the start of Task 7 + 3 new in
+  `test_export.py`. Phase B as a whole — tasks 6–7 — started at 224.)
 - Break-it verification performed before committing (each mutation applied
   to `routes/export.py`, confirmed to fail the export tests, then reverted
   and the full suite re-run green at 243):
