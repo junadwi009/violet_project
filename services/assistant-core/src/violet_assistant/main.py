@@ -222,11 +222,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     }
+    # `client_origins` above is the single source of allowed origins. There is
+    # deliberately no `allow_origin_regex`: an earlier
+    # `r"http://(localhost|127\.0\.0\.1):\d+"` made the allowlist decorative by
+    # admitting *every* localhost port, so any page served locally — a second dev
+    # server, a local Electron app, an npm postinstall that opens a listener —
+    # could read the response of any endpoint. The API is unauthenticated apart
+    # from the `VIOLET_API_TOKEN` gate on `GET /api/export`, so `GET
+    # /api/sessions`, `GET /api/sessions/{id}/messages` and `GET /api/memory`
+    # were cross-origin readable and `DELETE /api/sessions` — which wipes every
+    # session and message — was a single cross-origin call. If a legitimate
+    # origin needs access, add it to `client_origins` (or set
+    # `PUBLIC_CLIENT_URL`); do not reintroduce a regex.
+    #
+    # `allow_credentials` is False: nothing here authenticates with cookies, the
+    # only credential is the `Authorization: Bearer` header on `/api/export`
+    # (unaffected by this flag), and True alongside `allow_headers=["*"]` is a
+    # spec violation browsers handle inconsistently.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=sorted(client_origins),
-        allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
