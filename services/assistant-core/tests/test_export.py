@@ -19,7 +19,14 @@ from violet_assistant.routes.export import create_export_router
 # Every secret-bearing Settings field, by name shape. Matched as a whole
 # `_`-delimited segment run so `gdrive_token_path` — a path to a file holding a
 # live Google refresh token — is covered too; an `endswith` selector misses it.
-SECRET_FIELD_RE = re.compile(r"_(api_key|base_url|token|secrets?|password|credentials)(_|$)")
+# `database_url` is listed explicitly (rather than a generic "url" segment,
+# which would also sweep in `public_client_url` — a non-secret browser URL)
+# because a real deployment's DATABASE_URL can be a `postgresql://user:pass@host`
+# connection string; this repo is SQLite-only today so the field is harmless in
+# practice, but the selector should not depend on that staying true.
+SECRET_FIELD_RE = re.compile(
+    r"(?:^|_)(api_key|base_url|token|secrets?|password|credentials|database_url)(?:_|$)"
+)
 
 TEST_TOKEN = "task7b-correct-horse-battery"
 
@@ -108,6 +115,11 @@ async def test_export_excludes_secret_values(tmp_path, store):
     happens to contain the word "token" and so tripped the name-based regex in
     ``test_export_excludes_locked_and_secrets``. Point ``GDRIVE_TOKEN_PATH``
     at a path without that word and an identical leak passed every test.
+
+    ``database_url`` is covered too: this deployment is SQLite-only so the
+    current value is harmless, but the field shape (a connection string that
+    can embed a username/password) is exactly what this loop exists to catch,
+    and it previously sat outside the selector entirely.
     """
     base_settings = load_settings(tmp_path)
     secret_field_names = [
@@ -115,9 +127,10 @@ async def test_export_excludes_secret_values(tmp_path, store):
     ]
     # Pinned so a newly added secret-bearing field can't silently join
     # Settings without also being covered by this loop.
-    assert len(secret_field_names) == 21
+    assert len(secret_field_names) == 22
     assert "gdrive_token_path" in secret_field_names
     assert "violet_api_token" in secret_field_names
+    assert "database_url" in secret_field_names
 
     canaries = {name: f"CANARY-{name}-9f3a2b" for name in secret_field_names}
     settings = replace(base_settings, **canaries)
@@ -287,16 +300,39 @@ def test_rejection_bodies_never_echo_the_configured_token(tmp_path):
             assert TEST_TOKEN[:size] not in body
 
 
-def test_token_comparison_is_constant_time(tmp_path):
-    """Static pin on `hmac.compare_digest`.
+def test_export_source_pins_constant_time_comparison(tmp_path):
+    """Static pin on `hmac.compare_digest`, anchored to the comparison itself.
 
     Honest scope: this asserts on source text, not behavior. A timing side
     channel is not observable from a test process with any reliability, so
-    there is no behavioral test that distinguishes `compare_digest` from `==`.
-    What this catches is a refactor quietly swapping the constant-time
-    comparison back out.
+    there is no behavioral test that distinguishes `compare_digest` from `==`
+    or `!=`. What this catches is a refactor quietly swapping the
+    constant-time comparison back out — it proves nothing about actual
+    timing, hence the name: it pins source shape, not behavior.
+
+    Anchored to the comparison statement, not "compare_digest appears
+    somewhere in the module": an earlier version only asserted presence of
+    the literal `hmac.compare_digest(` plus the absence of
+    `== settings.violet_api_token`. Both of those survive a mutation that (a)
+    adds an unused decoy `hmac.compare_digest(b"decoy", b"decoy")` call
+    elsewhere and (b) rewrites the real check to compare the local `expected`
+    /`presented` variables with `!=` instead of `settings.violet_api_token`
+    directly — the decoy satisfies the positive assertion and the real
+    rewrite never matches the `settings.violet_api_token` pattern the
+    negative assertion was looking for. Requiring `compare_digest(...)` to
+    take `presented` and `expected` as its own arguments, in the same
+    statement, closes that gap.
     """
     source = inspect.getsource(export_module)
-    assert "hmac.compare_digest(" in source
-    assert not re.search(r"==\s*settings\.violet_api_token", source)
-    assert not re.search(r"settings\.violet_api_token\s*==", source)
+    comparison = re.search(
+        r"hmac\.compare_digest\(\s*presented\.encode\([^)]*\)\s*,"
+        r"\s*expected\.encode\([^)]*\)\s*\)",
+        source,
+    )
+    assert comparison, (
+        "expected the token check to call "
+        "hmac.compare_digest(presented.encode(...), expected.encode(...)) "
+        "as the actual comparison"
+    )
+    assert not re.search(r"\bpresented\s*(==|!=)\s*expected\b", source)
+    assert not re.search(r"\bexpected\s*(==|!=)\s*presented\b", source)

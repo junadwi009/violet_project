@@ -120,12 +120,25 @@ its contents and `Content-Disposition` header are byte-identical to what
 `8878b46`/`d771d70` produced. `git diff` on `routes/export.py` touches only the
 imports, the new dependency factory, and the `APIRouter(...)` line.
 
-**Honest limitation.** The web client is legitimately cross-origin (Vite on
-5173 → API on 8000), so when Task 15 wires the Data panel it will have to carry
-the token in its bundle, and a local attacker who can read that bundle can read
-the token. This raises the bar against a drive-by `fetch()` from an arbitrary
-localhost page; it is **not** airtight, and it should not be described as if it
-were. The remaining endpoints are still unauthenticated.
+**Honest limitation — corrected 2026-07-27 (fix pass).** The web client is
+legitimately cross-origin (Vite on 5173 → API on 8000), so when Task 15 wires
+the Data panel it will have to carry the token in its bundle, and a local
+attacker who can read that bundle can read the token. But that is not the
+dominant gap. `GET /api/sessions`, `GET /api/sessions/{id}/messages`, and
+`GET /api/memory` are all still ungated and cross-origin-readable (same CORS
+policy, no dependency), and together they return essentially the same data as
+the export bundle — session list, every message, every memory — just as N+1
+requests instead of one. `DELETE /api/sessions` is likewise reachable as a
+single unauthenticated cross-origin call and is destructive, which the export
+gate does nothing to address. So the gate does **not** put the data "behind a
+bar" — it raises attacker *cost* (a loop instead of one GET), not attacker
+*capability*. Framing this as "raises the bar against a drive-by fetch" is
+accurate only for the single export request; the previous wording ("raises the
+bar ... nothing stronger") read as if that bar covered the underlying data,
+which it does not. This — the three ungated read endpoints plus the ungated
+destructive `DELETE /api/sessions` — is the dominant outstanding risk from
+this task, ahead of the token-in-client-bundle issue. The remaining endpoints
+are still unauthenticated.
 
 `violet_api_token` is a secret: it is **not** in `EDITABLE_KEYS`
 (`preferences/store.py`) and **not** in `LOCKED_KEYS` (`routes/settings.py`),
