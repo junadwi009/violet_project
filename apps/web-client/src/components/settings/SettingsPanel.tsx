@@ -28,6 +28,7 @@ import { useDebouncedPatch } from "./useDebouncedPatch";
 import { AgentsPanel } from "./panels/AgentsPanel";
 import { AppearancePanel } from "./panels/AppearancePanel";
 import { BehaviorPanel } from "./panels/BehaviorPanel";
+import { DataPanel } from "./panels/DataPanel";
 import { GeneralPanel } from "./panels/GeneralPanel";
 import { KnowledgePanel } from "./panels/KnowledgePanel";
 import { ModelPanel } from "./panels/ModelPanel";
@@ -72,9 +73,11 @@ export type SettingsPanelProps = {
   onConnectGDrive: () => void;
   onDisconnectGDrive: () => void;
   devMode: boolean;
-  /** Wired up by Task 15's Data & privacy panel; declared here so the prop
-   *  contract Task 16 depends on is already in place. */
-  onDeleteAllSessions?: () => void;
+  /** Runs the destructive clear behind the Data & privacy panel's inline typed
+   *  confirmation. App owns it because the aftermath is App's state: the
+   *  session list, the open conversation, and the memory drawer all have to be
+   *  re-read once the rows are gone. */
+  onDeleteAllSessions: () => Promise<void>;
 };
 
 export function SettingsPanel({
@@ -100,6 +103,7 @@ export function SettingsPanel({
   onConnectGDrive,
   onDisconnectGDrive,
   devMode,
+  onDeleteAllSessions,
 }: SettingsPanelProps) {
   const [activeTab, setActiveTab] = useState("general");
   const [error, setError] = useState<string | null>(null);
@@ -218,6 +222,16 @@ export function SettingsPanel({
             {...panelProps}
             skills={skills}
             onOpenSkillLab={onOpenSkillLab}
+          />
+        );
+      case "data":
+        // Deliberately NOT spread with `panelProps`: this panel writes no
+        // preferences, so `values` / `overridden` / the two patch channels
+        // would all be dead props on it.
+        return (
+          <DataPanel
+            locked={settings?.locked ?? {}}
+            onDeleteAllSessions={onDeleteAllSessions}
           />
         );
       case "model":

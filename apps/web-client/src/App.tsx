@@ -15,6 +15,7 @@ import {
   SkillInfo,
   approveMemoryCandidate,
   connectGDrive,
+  deleteAllSessions,
   deleteMemory,
   disconnectGDrive,
   fetchAgents,
@@ -365,6 +366,37 @@ export function App() {
     setAvatarState("idle");
     setAvatarEmotion("neutral");
     setMemoryOpen(false);
+  }
+
+  async function handleDeleteAllSessions() {
+    setStatus({ tone: "busy", text: "Clearing sessions" });
+    try {
+      const report = await deleteAllSessions();
+      // The rows are gone server-side; every view that was reading them has to
+      // be brought back in line, or the UI keeps showing deleted data.
+      await refreshSessions();
+      // Whatever conversation was open no longer exists — reset to a new chat
+      // rather than leave a transcript on screen with no row behind it.
+      stopSpeaking();
+      setMessages([]);
+      setSessionId(null);
+      setDraft("");
+      setAvatarState("idle");
+      setAvatarEmotion("neutral");
+      // Clearing sessions cascades to memory *candidates* that were pending on
+      // them. Without this the drawer keeps offering candidates whose source
+      // conversation is gone, and approving one would fail.
+      await refreshMemory();
+      setStatus({
+        tone: "ok",
+        text: `Cleared ${report.deleted_sessions} sessions, ${report.deleted_messages} messages`,
+      });
+    } catch (error) {
+      setStatus({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Clear failed",
+      });
+    }
   }
 
   async function handleOpenSession(id: string) {
@@ -780,6 +812,7 @@ export function App() {
         onConnectGDrive={handleConnectGDrive}
         onDisconnectGDrive={handleDisconnectGDrive}
         devMode={devMode}
+        onDeleteAllSessions={handleDeleteAllSessions}
       />
 
       <HelpModal
