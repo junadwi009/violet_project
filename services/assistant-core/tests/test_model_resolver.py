@@ -25,15 +25,20 @@ def settings(tmp_path):
 
 
 class _RecordingProvider:
-    """Captures the ``options.model`` of every call and replies with fixed text."""
+    """Captures the ``options.model`` of every call and replies from a queue.
 
-    def __init__(self, reply: str) -> None:
-        self.reply = reply
+    ``reply`` may be a single fixed string (replayed on the only expected call) or a
+    list of replies consumed one per call, in order — mirrors ``ScriptedProvider`` in
+    ``test_cascade.py`` so multi-call flows (e.g. delegation) can be driven here too.
+    """
+
+    def __init__(self, reply: str | list[str]) -> None:
+        self._replies = list(reply) if isinstance(reply, list) else [reply]
         self.models: list[str] = []
 
     async def chat(self, messages, options: LLMOptions) -> LLMResponse:
         self.models.append(options.model)
-        return LLMResponse(text=self.reply, emotion="focused")
+        return LLMResponse(text=self._replies.pop(0), emotion="focused")
 
     async def health(self):  # pragma: no cover
         raise NotImplementedError
@@ -133,6 +138,53 @@ def test_cascade_uses_resolver_for_persona_model(tmp_path, settings):
     assert result.models_used == ["meta-llama/llama-3.3-70b"]
 
 
+def test_cascade_uses_resolver_for_technical_model_when_delegated(tmp_path, settings):
+    # The non-delegated test above only exercises 2 of the 5 model-substitution sites
+    # in CascadeResponder.respond(): _technical_model(), the composed (post-delegation)
+    # persona call, and the delegated models_used list are all skipped unless the first
+    # persona reply triggers delegation. Drive that path explicitly.
+    prefs = PreferencesStore(tmp_path / "preferences.json")
+    resolver = ModelResolver(prefs, settings)
+    persona = LayerConfig("persona", "http://p", "frozen/persona", None)
+    technical = LayerConfig("technical", "http://t", "frozen/technical", None)
+    providers = {
+        "persona": _RecordingProvider(["DELEGATE: compute 2 + 2", "It's 4."]),
+        "technical": _RecordingProvider("4"),
+    }
+    responder = CascadeResponder(
+        persona=persona,
+        technical=technical,
+        provider_factory=lambda layer: providers[layer.name],
+        resolver=resolver,
+    )
+    messages = [
+        Message(role="system", content="sys"),
+        Message(role="user", content="what is 2 + 2?"),
+    ]
+
+    prefs.patch(
+        {
+            "persona_model": "meta-llama/llama-3.3-70b",
+            "technical_model": "qwen/qwen3-coder-480b",
+        }
+    )
+    result = asyncio.run(responder.respond(messages, LLMOptions(model="ignored")))
+
+    assert result.delegated is True
+    # The technical provider must have received the resolved override, not the frozen
+    # LayerConfig default.
+    assert providers["technical"].models == ["qwen/qwen3-coder-480b"]
+    assert providers["persona"].models == [
+        "meta-llama/llama-3.3-70b",
+        "meta-llama/llama-3.3-70b",
+    ]
+    assert result.models_used == [
+        "meta-llama/llama-3.3-70b",
+        "qwen/qwen3-coder-480b",
+        "meta-llama/llama-3.3-70b",
+    ]
+
+
 def test_skill_engine_uses_resolver_for_artifact_model(tmp_path, settings):
     prefs = PreferencesStore(tmp_path / "preferences.json")
     resolver = ModelResolver(prefs, settings)
@@ -197,8 +249,12 @@ def test_create_app_wires_the_resolver(tmp_path, monkeypatch):
     migrations.mkdir(parents=True)
     for name in ("001_init.sql", "002_agent_runs.sql"):
         source = repo_root / "database" / "migrations" / name
-        if source.exists():
-            shutil.copy(source, migrations / name)
+        assert source.exists(), (
+            f"expected migration {name!r} at {source}; if it was renamed, update this "
+            "test's migration list too — otherwise create_app silently builds an app "
+            "with no schema instead of failing loudly here"
+        )
+        shutil.copy(source, migrations / name)
 
     # Every branch that holds a model id must be live for this to pin all four sites.
     settings = replace(
