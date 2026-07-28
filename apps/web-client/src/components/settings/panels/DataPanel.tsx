@@ -1,6 +1,10 @@
-import { useId, useState } from "react";
-import { AlertTriangle, Download, Lock } from "lucide-react";
-import { downloadExport, type ExportError } from "../../../lib/api";
+import { useEffect, useId, useRef, useState } from "react";
+import { AlertTriangle, Check, Download, Lock } from "lucide-react";
+import {
+  downloadExport,
+  type DeleteReport,
+  type ExportError,
+} from "../../../lib/api";
 import { SectionHeader } from "../controls/SectionHeader";
 
 const LOCKED_LABELS: Record<string, string> = {
@@ -84,11 +88,23 @@ export function DataPanel({
   onDeleteAllSessions,
 }: {
   locked: Record<string, string | number | boolean>;
-  onDeleteAllSessions: () => Promise<void>;
+  onDeleteAllSessions: () => Promise<DeleteReport>;
 }) {
   const confirmInputId = useId();
   const [confirmText, setConfirmText] = useState("");
   const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
+  const [clearReport, setClearReport] = useState<DeleteReport | null>(null);
+
+  // The danger zone is the last thing in a scrolling panel, so a result
+  // rendered *below* the button can land under the fold — which is only
+  // marginally better than rendering it under the scrim. `block: "nearest"`
+  // scrolls the panel only when the result is actually out of view.
+  const clearResultRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (clearError || clearReport)
+      clearResultRef.current?.scrollIntoView({ block: "nearest" });
+  }, [clearError, clearReport]);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<ExportError | null>(null);
   const [exportedFile, setExportedFile] = useState<string | null>(null);
@@ -283,9 +299,22 @@ export function DataPanel({
             disabled={confirmText !== CONFIRM_WORD || clearing}
             onClick={async () => {
               setClearing(true);
+              setClearError(null);
+              setClearReport(null);
               try {
-                await onDeleteAllSessions();
+                // `onDeleteAllSessions` rejects on failure — see its prop doc.
+                // Both outcomes are rendered below, in this panel: App's
+                // status pill is behind the settings scrim, so routing either
+                // one only there left a failed irreversible delete looking
+                // exactly like a click that did nothing.
+                setClearReport(await onDeleteAllSessions());
                 setConfirmText("");
+              } catch (error) {
+                // Leave `confirmText` alone: the word the user typed is still
+                // valid, and retrying should not mean typing it again.
+                setClearError(
+                  error instanceof Error ? error.message : "Clear failed",
+                );
               } finally {
                 setClearing(false);
               }
@@ -310,6 +339,52 @@ export function DataPanel({
           >
             {clearing ? "Clearing…" : "Clear all sessions"}
           </button>
+          {/* Both outcomes render directly on this section's own
+              `bg-danger/5`, with no nested tint. That is deliberate: the
+              button's comment above records that stacking a 15% danger tint
+              on this 5% one drops danger-coloured text to 4.29:1 in dark, so
+              a new tinted box here would be a new, unmeasured surface.
+
+              Measured in-browser on this exact composited background, both
+              themes (Canvas-resolved, same method as the Task 17 sweep):
+                text-[color:var(--color-danger)]  5.92 light / 6.46 dark
+                text-steel-dark                  16.39 light / 12.89 dark
+                --color-success (Check icon)      7.03 light / 7.76 dark
+              (The 5.47 dark quoted in the button comment above predates
+              commit 3658f45's lightening of the dark danger token.) */}
+          <div ref={clearResultRef} className="empty:hidden space-y-2">
+            {clearError && (
+              <div role="alert" className="space-y-0.5">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold text-[color:var(--color-danger)]">
+                  <AlertTriangle size={12} className="shrink-0" />
+                  Nothing was deleted
+                </p>
+                <p className="text-[11px] text-steel-dark leading-relaxed">
+                  {clearError} — your sessions are still there. Check that the
+                  assistant is running, then try again; the confirmation word is
+                  still filled in.
+                </p>
+              </div>
+            )}
+            {clearReport && (
+              <p
+                role="status"
+                className="flex items-start gap-1.5 text-[11px] text-steel-dark leading-relaxed"
+              >
+                <Check
+                  size={12}
+                  className="mt-0.5 shrink-0 text-[color:var(--color-success)]"
+                />
+                <span>
+                  Cleared {clearReport.deleted_sessions} sessions and{" "}
+                  {clearReport.deleted_messages} messages
+                  {clearReport.deleted_candidates > 0 &&
+                    `, plus ${clearReport.deleted_candidates} pending memory candidates`}
+                  .
+                </span>
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>

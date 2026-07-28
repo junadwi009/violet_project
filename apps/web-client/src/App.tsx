@@ -4,12 +4,14 @@ import {
   AgentInfo,
   AppSettings,
   ChatMessage,
+  DeleteReport,
   Memory,
   MemoryCandidate,
   MemoryInfo,
   PersonalityProfile,
   KnowledgeInfo,
   ProviderInfo,
+  ReindexReport,
   RouterInfo,
   SessionSummary,
   SkillInfo,
@@ -440,7 +442,25 @@ export function App() {
     setMemoryOpen(false);
   }
 
-  async function handleDeleteAllSessions() {
+  /** Resolves with the server's report, and *rejects* on failure.
+   *
+   *  Deliberately not the `patchError`-prop treatment Task 18 used, and not the
+   *  result-object treatment `downloadExport` uses. Both of those exist for
+   *  reasons that do not hold here:
+   *    - Task 18 could not rethrow because two of `handlePatchSettings`' three
+   *      call sites invoke it without awaiting, so a rejection would go
+   *      unhandled. This handler has exactly one call site, and it already
+   *      awaits inside try/finally.
+   *    - `downloadExport` returns a discriminated union because its failures
+   *      have genuinely different fixes (client token vs server token vs
+   *      mismatch) and a thrown Error cannot carry that taxonomy without a
+   *      subclass. A failed clear has no such taxonomy — it is one message.
+   *  What is left is `requestJson`'s own throw convention, which every other
+   *  handler in this file already follows. Returning the report rather than
+   *  `void` is the other half: the success figures have to reach the panel too,
+   *  and a `Promise<void>` cannot carry them.
+   */
+  async function handleDeleteAllSessions(): Promise<DeleteReport> {
     setStatus({ tone: "busy", text: "Clearing sessions" });
     try {
       const report = await deleteAllSessions();
@@ -463,11 +483,17 @@ export function App() {
         tone: "ok",
         text: `Cleared ${report.deleted_sessions} sessions, ${report.deleted_messages} messages`,
       });
+      return report;
     } catch (error) {
+      // Still set the pill — it is the right surface once Settings is closed —
+      // but the pill lives in WorkspaceHeader, *under* the settings scrim, so
+      // it cannot be the only surface. Rethrow so DataPanel can say it where
+      // the user is actually looking.
       setStatus({
         tone: "error",
         text: error instanceof Error ? error.message : "Clear failed",
       });
+      throw error;
     }
   }
 
@@ -642,7 +668,17 @@ export function App() {
     }
   }
 
-  async function handleReindex(full: boolean, source?: string) {
+  // The three knowledge actions below are only ever reached from inside the
+  // Settings dialog, whose scrim covers the status pill. Same treatment as
+  // `handleDeleteAllSessions`: keep the pill for when the dialog is closed,
+  // resolve with whatever the panel needs to report success, and rethrow so
+  // the panel can report failure where the user can read it. Each has exactly
+  // one call site, and it awaits.
+
+  async function handleReindex(
+    full: boolean,
+    source?: string,
+  ): Promise<ReindexReport> {
     setStatus({ tone: "busy", text: full ? "Rebuilding knowledge" : "Reindexing knowledge" });
     try {
       const report = await reindexKnowledge(full, source);
@@ -651,15 +687,17 @@ export function App() {
         tone: "ok",
         text: `Indexed ${report.indexed}, skipped ${report.skipped}, removed ${report.removed}`,
       });
+      return report;
     } catch (error) {
       setStatus({
         tone: "error",
         text: error instanceof Error ? error.message : "Reindex failed",
       });
+      throw error;
     }
   }
 
-  async function handleConnectGDrive() {
+  async function handleConnectGDrive(): Promise<void> {
     setStatus({ tone: "busy", text: "Opening Google consent…" });
     try {
       await connectGDrive();
@@ -670,10 +708,11 @@ export function App() {
         tone: "error",
         text: error instanceof Error ? error.message : "Connect failed",
       });
+      throw error;
     }
   }
 
-  async function handleDisconnectGDrive() {
+  async function handleDisconnectGDrive(): Promise<void> {
     try {
       await disconnectGDrive();
       await refreshKnowledge();
@@ -683,6 +722,7 @@ export function App() {
         tone: "error",
         text: error instanceof Error ? error.message : "Disconnect failed",
       });
+      throw error;
     }
   }
 

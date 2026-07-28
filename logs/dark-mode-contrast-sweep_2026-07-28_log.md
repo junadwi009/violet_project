@@ -175,10 +175,33 @@ would both mislead — one into under-testing dark, the other into over-pricing 
 - `.superpowers/sdd/task-17-report.md` — §2 and §5.1 annotated in place (struck, not
   rewritten); new `## Fix pass` section with the full danger-token surface set.
 
-Shared-seam note: one more token value moved — `--color-danger` (dark only). Lightening is
+Shared-seam note: one more token value moved — `--color-danger` (dark only). ~~Lightening is
 monotone for every way this token is used (it raises both the tinted-chip ratios and the
-dark ink on the solid fill), so no danger surface regresses; the full 13-row surface set is
+dark ink on the solid fill), so no danger surface regresses~~; the full 13-row surface set is
 in the report. Nothing outside the web client reads it.
+
+> **Correction (2026-07-28, final fix pass).** The struck sentence is retracted. Commit
+> `877ff90` was written specifically to narrow it and never updated this log, which left the
+> owning entry asserting something `index.css` had already stopped claiming.
+>
+> Monotone for every danger-**coloured** foreground — tinted chips, plain text, and the dark
+> ink on the solid fill all rise, +0.70 to +1.35. **Not** monotone for a danger-**tinted
+> container holding non-danger text**: a lighter tint lightens the background, so the
+> near-white `text-steel-dark` inside it loses contrast. Two measured drops:
+>
+> | surface | before | after |
+> |---|---|---|
+> | danger-zone body copy on `bg-danger/5` | 13.08 | 12.96 |
+> | export-error detail on `bg-danger/10` | 12.04 | 11.75 |
+>
+> Immaterial against a 4.5 bar, but the direction is real, and this note is what the next
+> token move gets checked against. The failure pattern is the one named in `877ff90`:
+> asserting a worst case instead of enumerating it — the same shape of claim that let the
+> `--color-steel-ice` move ship a regression in the commit meant to remove them.
+>
+> `877ff90` also breached this project's update-log rule: it changed `index.css` with no log
+> entry at all. Recorded here and in
+> `logs/settings-clear-and-knowledge-error-surfaces_2026-07-28_log.md`.
 
 ## Interfaces / contracts changed
 

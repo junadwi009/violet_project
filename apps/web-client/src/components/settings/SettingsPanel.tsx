@@ -14,9 +14,11 @@ import {
   resetSettings,
   type AgentInfo,
   type AppSettings,
+  type DeleteReport,
   type KnowledgeInfo,
   type PersonalityProfile,
   type ProviderInfo,
+  type ReindexReport,
   type RouterInfo,
   type SettingsGroup,
   type SettingsValues,
@@ -78,15 +80,25 @@ export type SettingsPanelProps = {
   onSettingsReset: (next: AppSettings) => void;
   onOpenSkillLab: () => void;
   knowledge: KnowledgeInfo | null;
-  onReindex: (full: boolean, source?: string) => void;
-  onConnectGDrive: () => void;
-  onDisconnectGDrive: () => void;
+  /** These three reject on failure and resolve with what the panel needs to
+   *  report success, so `KnowledgePanel` can render both outcomes in its own
+   *  body. App's status pill is in `WorkspaceHeader`, under the settings
+   *  scrim, so it cannot be the only surface for an action that is *only*
+   *  reachable from inside this dialog. */
+  onReindex: (full: boolean, source?: string) => Promise<ReindexReport>;
+  onConnectGDrive: () => Promise<void>;
+  onDisconnectGDrive: () => Promise<void>;
   devMode: boolean;
   /** Runs the destructive clear behind the Data & privacy panel's inline typed
    *  confirmation. App owns it because the aftermath is App's state: the
    *  session list, the open conversation, and the memory drawer all have to be
-   *  re-read once the rows are gone. */
-  onDeleteAllSessions: () => Promise<void>;
+   *  re-read once the rows are gone.
+   *
+   *  Resolves with the server's report and *rejects* on failure — see the
+   *  reasoning on `handleDeleteAllSessions` in App.tsx. A `Promise<void>` that
+   *  always resolved made a failed clear indistinguishable from "nothing
+   *  happened" on an irreversible control. */
+  onDeleteAllSessions: () => Promise<DeleteReport>;
 };
 
 export function SettingsPanel({
