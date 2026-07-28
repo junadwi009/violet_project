@@ -63,6 +63,12 @@ export type SettingsPanelProps = {
   skills: SkillInfo[];
   settings: AppSettings | null;
   onPatchSettings: (changes: SettingsValues) => void;
+  /** Last failed preference write, owned by App because `onPatchSettings`
+   *  resolves to `void` and swallows its own error — this panel cannot observe
+   *  the failure itself. Rendered in the shell's error slot alongside reset
+   *  failures, because App's status pill sits in `WorkspaceHeader`, which the
+   *  settings scrim covers and blurs while the dialog is open. */
+  patchError: string | null;
   /** App owns `appSettings`. A group reset returns the full post-reset payload
    *  on its own response, so hand it back through here rather than firing a
    *  second request just to re-read what we already have. Named for the event,
@@ -99,6 +105,7 @@ export function SettingsPanel({
   skills,
   settings,
   onPatchSettings,
+  patchError,
   onSettingsReset,
   onOpenSkillLab,
   knowledge,
@@ -269,7 +276,10 @@ export function SettingsPanel({
       onClose={handleClose}
       title="Settings"
       activeTab={activeTab}
-      error={error}
+      // Reset failures are local to this component; ordinary write failures
+      // arrive from App. A reset error wins because it is the more recent,
+      // more deliberate action when both are present.
+      error={error ?? patchError}
       nav={
         <SettingsNav
           items={NAV}

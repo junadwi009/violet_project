@@ -129,6 +129,9 @@ export function App() {
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
   const [avatarEmotion, setAvatarEmotion] = useState<AvatarEmotion>("neutral");
   const [status, setStatus] = useState<Status>({ tone: "idle", text: "Ready" });
+  /** Last failed preference write, shown inside the Settings dialog. Separate
+   *  from `status` because the status pill is behind the settings scrim. */
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [personalities, setPersonalities] = useState<PersonalityProfile[]>([]);
   const [personalityId, setPersonalityId] = useState("violet.default");
   const [candidates, setCandidates] = useState<MemoryCandidate[]>([]);
@@ -616,11 +619,18 @@ export function App() {
     try {
       const next = await patchSettings(changes);
       setAppSettings(next);
+      setSettingsError(null);
     } catch (error) {
-      setStatus({
-        tone: "error",
-        text: error instanceof Error ? error.message : "Settings failed",
-      });
+      const text = error instanceof Error ? error.message : "Settings failed";
+      setStatus({ tone: "error", text });
+      // Also surface it *inside* the dialog. The status pill lives in
+      // WorkspaceHeader, which the settings scrim covers and blurs
+      // (`fixed inset-0 ... backdrop-blur-sm z-50`), so with Settings open a
+      // failed write was previously reported only somewhere the user cannot
+      // read. Deliberately not a rethrow: two of the three call sites below
+      // invoke this without awaiting, and rejecting would make those
+      // unhandled.
+      setSettingsError(text);
     }
   }
 
@@ -725,6 +735,13 @@ export function App() {
     setCanvasOpen(true);
   }
 
+  // Every entry point into Settings goes through here so a write failure from
+  // a previous visit is never still on screen when the dialog reopens.
+  function openSettings() {
+    setSettingsError(null);
+    setSettingsOpen(true);
+  }
+
   const composerProps = {
     value: draft,
     onChange: setDraft,
@@ -737,7 +754,7 @@ export function App() {
     speechOutputEnabled,
     onToggleSpeechOutput: handleSpeechOutputToggle,
     providerLabel: shortProviderLabel(selectedProvider),
-    onOpenSettings: () => setSettingsOpen(true),
+    onOpenSettings: openSettings,
     assistantName,
     onAttach: handleAttach,
     attaching,
@@ -763,7 +780,7 @@ export function App() {
         onOpenSession={handleOpenSession}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={openSettings}
         providerActive={selectedProvider === "mock" || providers.length > 0}
         assistantName={assistantName}
       />
@@ -826,7 +843,7 @@ export function App() {
         visible={!isListening}
         pendingCount={candidates.length}
         onToggleMemory={() => setMemoryOpen((value) => !value)}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={openSettings}
         onOpenHelp={() => setHelpOpen(true)}
         onOpenSkillLab={() => setSkillLabOpen(true)}
         devMode={devMode}
@@ -881,6 +898,7 @@ export function App() {
         skills={skills}
         settings={appSettings}
         onPatchSettings={handlePatchSettings}
+        patchError={settingsError}
         onSettingsReset={(next) => {
           setAppSettings(next);
           // One-shot resync, on this one event — deliberately NOT a recurring
