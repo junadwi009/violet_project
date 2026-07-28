@@ -119,8 +119,20 @@
        plain:     steel-ice 6.35  navy-800 7.03  navy-900 7.64  navy-950 8.12
        solid fill under text-navy-950: 8.12
 
-     Lightening is monotone here — it raises the tinted-chip ratios AND the
-     dark ink on the solid fill — so no danger surface regresses. */
+     Lightening is monotone for every danger-*coloured* foreground — tinted
+     chips, plain text, and the dark ink on the solid fill all rise, +0.70 to
+     +1.35.
+
+     It is NOT monotone in one direction, and the next person to move this
+     token needs to check it: a danger-*tinted container* holding non-danger
+     text gets a lighter background, so its near-white `text-steel-dark` ink
+     loses contrast. Measured drops were 13.08 → 12.96 (danger-zone body copy
+     on `bg-danger/5`) and 12.04 → 11.75 (export-error detail on
+     `bg-danger/10`) — immaterial at ~13:1 against a 4.5 bar, but the direction
+     is real. An earlier version of this note claimed monotonicity outright;
+     that is the same shape of over-broad claim that let the `steel-ice` move
+     ship a regression, because the worst case was asserted rather than
+     enumerated. */
   --color-danger: #fb8a8a;
 }
 /* --color-danger is for destructive *text and borders*, and is measured as
