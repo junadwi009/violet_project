@@ -298,11 +298,20 @@ export function App() {
         // the composer's provider chip instead of a label. The server's
         // active provider is the fallback, not an unconditional override.
         setSelectedProvider((current) =>
+          // At bootstrap, `current` is still the hardcoded `useState("mock")` —
+          // a placeholder, not a choice — so the server's active provider has
+          // to outrank it. Passing them in the natural order silently lands on
+          // "mock" whenever `default_provider` names something the registry
+          // does not offer: `LLM_PROVIDER=ollama` in `.env` seeds
+          // `default_provider` as "ollama", but the registry exposes only
+          // "mock" and "openai_compatible", so `desired` misses, `current`
+          // ("mock") hits, and chat short-circuits to the offline provider
+          // while a real API key sits configured. Swapped deliberately.
           resolveOffered(
             String(settings?.values.default_provider ?? ""),
-            current,
-            providerResponse.items,
             providerResponse.active,
+            providerResponse.items,
+            current,
           ),
         );
       })
