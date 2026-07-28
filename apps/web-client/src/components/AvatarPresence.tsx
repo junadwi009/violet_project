@@ -23,13 +23,15 @@ export function AvatarPresence({ name, state, emotion, visible }: AvatarPresence
       <div className="relative mb-3 flex flex-col items-center">
         <div className="absolute inset-0 rounded-full glowing-avatar opacity-80 blur-2xl" />
         <div className="relative w-36 h-36 overflow-hidden z-10 soft-edge-avatar rounded-full">
+          {/* Fixed brand orb — literal stops on purpose, identical in both
+              themes. See the measured note in EmptyState.tsx. */}
           <div
             className={`w-full h-full rounded-full bg-[radial-gradient(circle_at_50%_35%,#c77dff_0%,#9d4edd_45%,#7b2cbf_75%,#5a189a_100%)] ${
               active ? "animate-pulse" : ""
             }`}
           />
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="font-mono text-4xl font-semibold text-white/90 drop-shadow">
+            <span className="font-mono text-4xl font-semibold text-white drop-shadow">
               V
             </span>
           </div>

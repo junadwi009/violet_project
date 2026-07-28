@@ -27,8 +27,8 @@ export function SkillPalette({ query, onPick, onClose }: Props) {
   if (filtered.length === 0) return null;
 
   return (
-    <div className="absolute bottom-full mb-2 left-0 w-full max-w-md bg-white border border-navy-700/20 rounded-2xl shadow-xl overflow-hidden z-30">
-      <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-steel/60 border-b border-navy-700/10 flex items-center gap-1.5">
+    <div className="absolute bottom-full mb-2 left-0 w-full max-w-md bg-navy-800 border border-navy-700/20 rounded-2xl shadow-xl overflow-hidden z-30">
+      <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-steel-muted border-b border-navy-700/10 flex items-center gap-1.5">
         <Sparkles size={11} className="text-steel-highlight" /> Skills
       </div>
       <ul className="max-h-64 overflow-y-auto custom-scrollbar">
@@ -45,7 +45,7 @@ export function SkillPalette({ query, onPick, onClose }: Props) {
               <span className="text-sm font-medium text-steel-dark">
                 /{s.id} · {s.name}
               </span>
-              <span className="text-[11px] text-steel/60 truncate">{s.description}</span>
+              <span className="text-[11px] text-steel-muted truncate">{s.description}</span>
             </button>
           </li>
         ))}
@@ -56,7 +56,7 @@ export function SkillPalette({ query, onPick, onClose }: Props) {
           e.preventDefault();
           onClose();
         }}
-        className="w-full text-[10px] text-steel/50 py-1.5 hover:bg-steel-ice"
+        className="w-full text-[10px] text-steel-muted py-1.5 hover:bg-steel-ice"
       >
         Esc to dismiss
       </button>

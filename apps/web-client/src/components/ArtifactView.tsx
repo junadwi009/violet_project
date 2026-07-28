@@ -35,7 +35,7 @@ export function ChartArtifact({ artifact }: { artifact: Artifact }) {
   }, [artifact.spec]);
 
   if (error) {
-    return <div className="text-xs text-red-600 p-3">Chart error: {error}</div>;
+    return <div className="text-xs text-[color:var(--color-danger)] p-3">Chart error: {error}</div>;
   }
   return (
     <div className="p-3">
@@ -53,7 +53,7 @@ export function HtmlArtifact({ artifact }: { artifact: Artifact }) {
     <div className="relative">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="absolute top-2 right-2 z-10 w-7 h-7 rounded-lg bg-white/80 border border-navy-700/20 flex items-center justify-center text-steel hover:text-steel-dark transition"
+        className="absolute top-2 right-2 z-10 w-7 h-7 rounded-lg bg-navy-800/80 border border-navy-700/20 flex items-center justify-center text-steel hover:text-steel-dark transition"
         title={expanded ? "Shrink" : "Expand"}
       >
         {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -62,7 +62,7 @@ export function HtmlArtifact({ artifact }: { artifact: Artifact }) {
         title={artifact.title || "Dashboard"}
         sandbox="allow-scripts"
         srcDoc={srcDoc}
-        className="w-full rounded-b-xl bg-white"
+        className="w-full rounded-b-xl bg-navy-800"
         style={{ height: expanded ? 700 : 380, border: "none" }}
       />
     </div>
@@ -100,13 +100,13 @@ export function FileArtifact({ artifact }: { artifact: Artifact }) {
         <p className="text-sm font-medium text-steel-dark truncate">
           {artifact.filename || (isPptx ? "presentation.pptx" : "document.docx")}
         </p>
-        <p className="text-[11px] text-steel/60 uppercase tracking-wider">
+        <p className="text-[11px] text-steel-muted uppercase tracking-wider">
           {isPptx ? "PowerPoint" : "Word document"} · ready to download
         </p>
       </div>
       <button
         onClick={download}
-        className="inline-flex items-center gap-1.5 bg-steel-dark hover:bg-black text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition shrink-0"
+        className="inline-flex items-center gap-1.5 bg-steel-dark hover:opacity-90 text-navy-950 text-xs font-semibold px-3.5 py-2 rounded-lg transition shrink-0"
       >
         <Download size={14} />
         Download
@@ -146,7 +146,7 @@ export function ArtifactView({
       <button
         type="button"
         onClick={onOpen}
-        className="mt-3 w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-navy-700/25 bg-white shadow-sm hover:border-steel-highlight/40 transition text-left"
+        className="mt-3 w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-navy-700/25 bg-navy-800 shadow-sm hover:border-steel-highlight/40 transition text-left"
       >
         {icon}
         <span className="text-xs font-semibold text-steel-dark truncate">{title}</span>
@@ -158,17 +158,17 @@ export function ArtifactView({
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-navy-700/25 bg-white overflow-hidden shadow-sm">
+    <div className="mt-3 rounded-xl border border-navy-700/25 bg-navy-800 overflow-hidden shadow-sm">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-navy-700/15 bg-navy-900/60">
         {icon}
         <span className="text-xs font-semibold text-steel-dark">{title}</span>
-        <span className="ml-auto text-[10px] text-steel/50 uppercase tracking-wider">
+        <span className="ml-auto text-[10px] text-steel-muted uppercase tracking-wider">
           {artifact.kind}
         </span>
         {onOpen && (
           <button
             onClick={onOpen}
-            className="text-steel/60 hover:text-steel-highlight transition"
+            className="text-steel-muted hover:text-steel-highlight transition"
             title="Open in canvas"
           >
             <Maximize2 size={12} />

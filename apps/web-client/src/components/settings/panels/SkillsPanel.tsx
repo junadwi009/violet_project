@@ -27,7 +27,7 @@ export function SkillsPanel({
             this task behavior-neutral. */}
         <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar p-1">
           {skills.length === 0 && (
-            <p className="text-[11px] text-steel/60 px-2 py-1">
+            <p className="text-[11px] text-steel-muted px-2 py-1">
               No skills configured. Type <span className="font-mono">/</span> in the
               composer to invoke one.
             </p>
@@ -40,7 +40,7 @@ export function SkillsPanel({
               <span className="text-xs font-medium text-steel-dark">
                 /{skill.id} · {skill.name}
               </span>
-              <span className="text-[11px] text-steel/60">{skill.description}</span>
+              <span className="text-[11px] text-steel-muted">{skill.description}</span>
             </div>
           ))}
         </div>

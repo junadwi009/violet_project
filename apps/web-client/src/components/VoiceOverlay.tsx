@@ -13,7 +13,11 @@ type VoiceOverlayProps = {
 export function VoiceOverlay({ open, name, onStop }: VoiceOverlayProps) {
   return (
     <div
-      className={`absolute inset-0 z-30 flex flex-col items-center justify-center bg-gradient-to-b from-white via-navy-950 to-navy-900 transition-all duration-500 ease-in-out ${
+      // `from-navy-800`, not `from-white`: the literal kept the top third of
+      // this full-screen overlay white in dark mode, under a `text-steel-dark`
+      // heading that inverts to near-white. navy-800 is #ffffff in light, so
+      // the light gradient is unchanged.
+      className={`absolute inset-0 z-30 flex flex-col items-center justify-center bg-gradient-to-b from-navy-800 via-navy-950 to-navy-900 transition-all duration-500 ease-in-out ${
         open ? "opacity-100" : "opacity-0 pointer-events-none"
       }`}
     >
@@ -21,6 +25,9 @@ export function VoiceOverlay({ open, name, onStop }: VoiceOverlayProps) {
         <div className="relative mb-6 flex flex-col items-center">
           <div className="absolute inset-0 rounded-full glowing-avatar opacity-75 blur-3xl" />
           <div className="relative w-52 h-52 overflow-hidden z-10 soft-edge-avatar rounded-full">
+            {/* Fixed brand orb — literal stops on purpose, identical in both
+                themes. See the measured note in EmptyState.tsx. No text sits
+                on this one. */}
             <div className="w-full h-full rounded-full bg-[radial-gradient(circle_at_50%_35%,#c77dff_0%,#9d4edd_45%,#7b2cbf_75%,#5a189a_100%)] animate-pulse" />
           </div>
         </div>
@@ -41,7 +48,7 @@ export function VoiceOverlay({ open, name, onStop }: VoiceOverlayProps) {
         <div className="flex flex-col items-center gap-2 mt-4">
           <button
             onClick={onStop}
-            className="w-16 h-16 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg transition duration-200 active:scale-95"
+            className="w-16 h-16 bg-[color:var(--color-danger)] hover:opacity-90 text-navy-950 rounded-full flex items-center justify-center shadow-lg transition duration-200 active:scale-95"
             title="Stop voice session"
           >
             <MicOff size={22} />

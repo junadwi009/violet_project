@@ -26,10 +26,18 @@
 
   /* Ink & accents */
   --color-steel: #5a4b6e; /* muted deep violet-slate */
+  --color-steel-muted: #6b5e7c; /* tertiary ink — see the note below */
   --color-steel-light: #9c8eb9; /* mid-tone orchid slate */
   --color-steel-ice: #f5eefc; /* super light orchid tint */
   --color-steel-dark: #1f0e35; /* deep plum-black contrast text */
   --color-steel-highlight: #7b2cbf; /* vibrant electric violet */
+
+  /* Modal scrim. NOT a surface token: an overlay has to darken whatever is
+     behind it in BOTH themes, so it cannot follow an inverting token. The
+     previous `bg-steel-dark/20|30` did follow one — in dark, `steel-dark` is
+     #f2ecfa, so the scrim became a near-white veil that *brightened* the page
+     it was supposed to recede. */
+  --color-scrim: #1f0e35;
 
   --animate-glow-slow: glowSlow 5s ease-in-out infinite;
 }
@@ -47,17 +55,52 @@
   --color-navy-800: #241d31;
   --color-navy-700: #3a2f4d;
   --color-steel: #b9a9d1;
+  --color-steel-muted: #a294bd;
   --color-steel-light: #8d7da8;
-  --color-steel-ice: #241d31;
+  /* Was #241d31 — byte-identical to --color-navy-800, so any raised chip drawn
+     as `bg-navy-800` on a `bg-steel-ice` track (SegmentedRow's selected pill)
+     disappeared entirely and the only remaining selection cue was the text
+     colour. #2c2440 restores the light-mode relationship (a tint that reads as
+     a distinct step from the card surface) without moving `navy-800`, which is
+     the settings dialog, every input and every card. */
+  --color-steel-ice: #2c2440;
   --color-steel-dark: #f2ecfa;
   --color-steel-highlight: #c084fc; /* default dark accent — see contrast note below */
+  --color-scrim: #000000;
 }
+
+/* Tertiary ink. `text-steel/50|60|70` was being used as a three-step "quieter
+   text" ramp, but an opacity modifier on `--color-steel` has no contrast
+   budget: measured across the surfaces it actually lands on, /50 was 2.25
+   light / 1.33 dark, /60 was 2.73 / 3.59 and /70 was 3.35 / 4.38 — every step
+   under AA's 4.5:1, in both themes. One token replaces the whole ramp, tuned
+   against EVERY surface it can land on — page, card, sidebar and the ice tint —
+   not just the obvious one. The sidebar (`navy-900`) is the binding constraint
+   in light and the ice tint is the binding constraint in dark, and an earlier
+   pass that measured only page+card landed on a value that still read 4.45:1
+   in the sidebar:
+
+     light #6b5e7c → navy-950 5.48  navy-800 5.97  navy-900 5.02  steel-ice 5.26
+     dark  #a294bd → navy-950 6.70  navy-800 5.80  navy-900 6.30  steel-ice 5.24
+
+   It stays visibly quieter than `--color-steel` (worst 6.62 light / 6.74 dark
+   on the same surfaces), so the hierarchy survives; only the failing step
+   moves. */
 
 /* Semantic status colors, so components stop reaching for raw
    Tailwind palette entries that cannot follow the theme. */
 :root {
-  --color-success: #047857;
-  --color-warning: #d97706;
+  /* Task 15 moved this from #059669 to #047857 to clear AA as plain text. That
+     is still true, but #047857 has no budget left for the 12% self-tint the
+     status chips use: measured on WorkspaceHeader's translucent bar it came
+     back 4.45:1. #065f46 (emerald-800) is 6.33:1 on the same chip and 6.98 /
+     7.68 as plain text on the page and card. */
+  --color-success: #065f46;
+  /* Was #d97706 (Tailwind amber-600). As *text* — which is the only way this
+     token is ever used — it measured 3.18:1 on the white card and 2.90:1 on
+     the page background: it never cleared AA. #92400e (amber-800) does:
+     7.09 on navy-800, 6.45 on navy-950, 6.28 on navy-900, 6.27 on steel-ice. */
+  --color-warning: #92400e;
   --color-danger: #b91c1c;
 }
 [data-theme="dark"] {
@@ -73,13 +116,27 @@
    2.77:1 (dark) — both fail badly, which is the exact failure mode the rest
    of this file is being swept for.
 
-   --color-success is text-only too, and is checked against both surfaces it
-   can sit on (page --color-navy-950, card --color-navy-800), worse one
-   quoted: light #047857 is 5.03:1 on navy-950 / 5.48:1 on navy-800; dark
-   #34d399 is 9.75:1 on navy-950 / 8.43:1 on navy-800. All clear AA. The
-   original light value #059669 (Tailwind emerald-600) measured 3.46:1 on
-   navy-950 — it had never been rendered by any component until DataPanel
-   became this token's first consumer, so the failure was latent. */
+   --color-success is checked against both surfaces it can sit on (page
+   --color-navy-950, card --color-navy-800), worse one quoted: light #065f46
+   is 6.98:1 on navy-950 / 7.68:1 on navy-800; dark #34d399 is 9.75:1 on
+   navy-950 / 8.43:1 on navy-800. All clear AA. The original light value
+   #059669 (Tailwind emerald-600) measured 3.46:1 on navy-950 — it had never
+   been rendered by any component until DataPanel became this token's first
+   consumer, so the failure was latent.
+
+   Status *chips* (SkillLab verdicts, WorkspaceHeader tone, ToolApproval) use
+   the one shape that survives both themes: a 12% tint of the token as the
+   fill, the token itself as the text, and a 40% tint as the border. Tinting a
+   surface with the very colour drawn on it costs contrast, so the ratios are
+   quoted here rather than assumed — worst surface per theme:
+
+     success  5.28 light / 6.74 dark      warning  5.88 / 7.51
+     danger   5.28 light / 4.89 dark
+
+   A *solid* semantic fill is only safe under `text-navy-950`, never
+   `text-white`: navy-950 inverts with the theme, so it is the light ink on a
+   dark fill and the dark ink on a light one (success 4.99 / 9.79, danger
+   5.88 / 6.80). That is the same trick every `bg-steel-dark` button uses. */
 
 /* Accent — one hue per theme. The accent is used for link and button *text*,
    not only for fills, so every hue is measured against BOTH surfaces it can
@@ -150,11 +207,15 @@ body {
 
 /* ---- Custom utilities ported from the mockup ---- */
 @layer utilities {
+  /* The fill and border are tokens, not literal whites. As `rgba(255,255,255,…)`
+     this stayed a white slab in dark mode with `text-steel` icons on it —
+     1.09:1 for the whole FloatingTools rail. `navy-800` is #ffffff in light, so
+     light mode is byte-identical to before. */
   .glass-panel {
-    background: rgba(255, 255, 255, 0.7);
+    background: color-mix(in srgb, var(--color-navy-800) 70%, transparent);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid color-mix(in srgb, var(--color-navy-700) 50%, transparent);
   }
 
   .glowing-avatar {

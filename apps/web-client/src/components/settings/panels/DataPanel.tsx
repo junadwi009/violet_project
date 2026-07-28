@@ -290,7 +290,7 @@ export function DataPanel({
                 setClearing(false);
               }
             }}
-            // Outlined, not a solid red fill: `text-white` on either danger
+            // Outlined, not a solid red fill: `text-navy-950` on either danger
             // value fails contrast badly in dark mode (~1.5:1). Bold danger-
             // colored text inside a full-strength danger border is just as
             // loud and stays legible in both themes.

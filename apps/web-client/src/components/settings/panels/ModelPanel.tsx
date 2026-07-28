@@ -73,8 +73,12 @@ export function ModelPanel({
                 }`}
               >
                 <span>{provider.label}</span>
+                {/* `text-steel`, not `text-steel-muted`: this badge sits on the
+                    *selected* row, whose `bg-steel-highlight/10` lifts the
+                    surface toward the accent and leaves the tertiary ink at
+                    4.50:1 — right on the line. `steel` is 6.15:1 there. */}
                 {provider.active && (
-                  <span className="text-[10px] uppercase tracking-wider text-steel/50">
+                  <span className="text-[10px] uppercase tracking-wider text-steel">
                     server default
                   </span>
                 )}
@@ -105,7 +109,7 @@ export function ModelPanel({
             <Layers size={13} className="text-steel-highlight shrink-0" />
             Routing · cascade
           </label>
-          <p className="text-[11px] text-steel/70">
+          <p className="text-[11px] text-steel-muted">
             Persona answers; heavy calculation and code are delegated to the technical
             layer on demand. Blank falls back to the server default.
           </p>

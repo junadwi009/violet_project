@@ -101,7 +101,7 @@ export function SettingsNav({
         <div key={item.id}>
           {index === firstDevIndex && firstDevIndex > 0 && (
             <div className="flex items-center gap-2 px-2 pt-3 pb-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-steel/50">
+              <span className="text-[10px] uppercase tracking-wider text-steel-muted">
                 dev
               </span>
               <span className="flex-1 h-px bg-navy-700/20" />

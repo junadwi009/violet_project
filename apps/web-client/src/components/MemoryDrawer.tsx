@@ -21,7 +21,7 @@ export function MemoryDrawer(props: MemoryDrawerProps) {
   return (
     <>
       <div
-        className={`fixed inset-0 bg-steel-dark/20 backdrop-blur-sm z-40 transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-[color:var(--color-scrim)]/20 backdrop-blur-sm z-40 transition-opacity duration-300 ${
           open ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
@@ -37,12 +37,12 @@ export function MemoryDrawer(props: MemoryDrawerProps) {
               <Database size={18} className="text-steel-highlight" />
               Memory
             </h2>
-            <p className="text-xs text-steel/70 mt-0.5">
+            <p className="text-xs text-steel-muted mt-0.5">
               {candidates.length} pending · {memories.length} approved
             </p>
             {info && (
               <p
-                className="text-[10px] text-steel/60 mt-1 flex items-center gap-1 max-w-[240px] truncate"
+                className="text-[10px] text-steel-muted mt-1 flex items-center gap-1 max-w-[240px] truncate"
                 title={info.location}
               >
                 {info.backend === "files" ? (
@@ -59,14 +59,14 @@ export function MemoryDrawer(props: MemoryDrawerProps) {
           <div className="flex items-center gap-1">
             <button
               onClick={onRefresh}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-steel hover:bg-white/60 transition"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-steel hover:bg-navy-800/60 transition"
               title="Refresh"
             >
               <RefreshCw size={16} />
             </button>
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-steel hover:bg-white/60 transition"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-steel hover:bg-navy-800/60 transition"
               title="Close"
             >
               <X size={18} />
@@ -117,11 +117,11 @@ function Section({
   const isEmpty = Array.isArray(children) && children.length === 0;
   return (
     <section className="space-y-3">
-      <h3 className="text-xs font-bold text-steel/60 uppercase tracking-widest">
+      <h3 className="text-xs font-bold text-steel-muted uppercase tracking-widest">
         {title}
       </h3>
       {isEmpty ? (
-        <div className="p-4 rounded-xl border border-dashed border-navy-700/40 text-sm text-steel/60">
+        <div className="p-4 rounded-xl border border-dashed border-navy-700/40 text-sm text-steel-muted">
           {empty}
         </div>
       ) : (
@@ -145,7 +145,7 @@ function CandidateCard({
   onReject: (id: string) => void;
 }) {
   return (
-    <article className="bg-white border border-navy-700/30 rounded-xl p-3 space-y-2.5 shadow-sm">
+    <article className="bg-navy-800 border border-navy-700/30 rounded-xl p-3 space-y-2.5 shadow-sm">
       <div className="flex items-center gap-2">
         <input
           value={candidate.memory_type}
@@ -153,7 +153,7 @@ function CandidateCard({
           aria-label="Candidate type"
           className="flex-1 h-8 px-2.5 rounded-lg bg-steel-ice border border-navy-700/20 text-xs text-steel-dark focus:outline-none focus:border-steel-highlight/50"
         />
-        <span className="text-xs text-steel/70 font-mono">
+        <span className="text-xs text-steel-muted font-mono">
           {Math.round(candidate.confidence * 100)}%
         </span>
       </div>
@@ -164,7 +164,7 @@ function CandidateCard({
         aria-label="Candidate content"
         className="w-full rounded-lg bg-steel-ice border border-navy-700/20 p-2.5 text-sm text-steel-dark resize-y focus:outline-none focus:border-steel-highlight/50"
       />
-      <p className="text-xs text-steel/70">{candidate.reason}</p>
+      <p className="text-xs text-steel-muted">{candidate.reason}</p>
       <div className="flex justify-end gap-2">
         <IconBtn onClick={() => onSave(candidate)} title="Save" tone="neutral">
           <Save size={15} />
@@ -192,7 +192,7 @@ function MemoryCard({
   onDelete: (id: string) => void;
 }) {
   return (
-    <article className="bg-white border border-steel-highlight/25 rounded-xl p-3 space-y-2.5 shadow-sm">
+    <article className="bg-navy-800 border border-steel-highlight/25 rounded-xl p-3 space-y-2.5 shadow-sm">
       <div className="flex items-center gap-2">
         <input
           value={memory.memory_type}
@@ -200,7 +200,7 @@ function MemoryCard({
           aria-label="Memory type"
           className="flex-1 h-8 px-2.5 rounded-lg bg-steel-ice border border-navy-700/20 text-xs text-steel-dark focus:outline-none focus:border-steel-highlight/50"
         />
-        <span className="text-xs text-steel/70 font-mono">
+        <span className="text-xs text-steel-muted font-mono">
           {Math.round(memory.confidence * 100)}%
         </span>
       </div>
@@ -234,10 +234,15 @@ function IconBtn({
   title: string;
   tone: "neutral" | "approve" | "reject";
 }) {
+  // Solid semantic fills under `text-navy-950`, the ink token that inverts with
+  // the theme. `bg-emerald-600 text-white` was 3.77:1 in *both* themes (a raw
+  // palette entry cannot follow the theme, and white on it never had the
+  // budget); `bg-steel text-white` was 2.17:1 in dark. Now: neutral 7.15/8.68,
+  // approve 4.99/9.79, reject 5.88/6.80.
   const tones = {
-    neutral: "bg-steel text-white hover:bg-steel-dark",
-    approve: "bg-emerald-600 text-white hover:bg-emerald-700",
-    reject: "bg-red-600 text-white hover:bg-red-700",
+    neutral: "bg-steel text-navy-950 hover:opacity-90",
+    approve: "bg-[color:var(--color-success)] text-navy-950 hover:opacity-90",
+    reject: "bg-[color:var(--color-danger)] text-navy-950 hover:opacity-90",
   };
   return (
     <button

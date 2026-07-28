@@ -10,11 +10,11 @@ export function HelpModal({ open, onClose, assistantName }: HelpModalProps) {
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 bg-steel-dark/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-[color:var(--color-scrim)]/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white border border-navy-700/20 p-8 rounded-[2rem] w-full max-w-md shadow-2xl relative"
+        className="bg-navy-800 border border-navy-700/20 p-8 rounded-[2rem] w-full max-w-md shadow-2xl relative"
         onClick={(e) => e.stopPropagation()}
       >
         <button

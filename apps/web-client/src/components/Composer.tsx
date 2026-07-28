@@ -96,7 +96,7 @@ export function Composer(props: ComposerProps) {
           <button
             type="button"
             onClick={() => onPickSkill(null)}
-            className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-white/70"
+            className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-navy-800/70"
             title="Remove skill"
           >
             <X size={12} />
@@ -108,12 +108,12 @@ export function Composer(props: ComposerProps) {
           <FileText size={13} className="text-steel-highlight shrink-0" />
           <span className="truncate max-w-[220px]">{attachment.filename}</span>
           {attachment.ocr && (
-            <span className="text-[9px] uppercase tracking-wider text-steel/60">OCR</span>
+            <span className="text-[9px] uppercase tracking-wider text-steel-muted">OCR</span>
           )}
           <button
             type="button"
             onClick={onRemoveAttachment}
-            className="w-5 h-5 rounded-full flex items-center justify-center text-steel hover:bg-white/70"
+            className="w-5 h-5 rounded-full flex items-center justify-center text-steel hover:bg-navy-800/70"
             title="Remove attachment"
           >
             <X size={12} />
@@ -131,7 +131,7 @@ export function Composer(props: ComposerProps) {
           e.target.value = "";
         }}
       />
-      <div className="relative flex items-center bg-white rounded-full shadow-lg pl-3 pr-3 py-3 transition focus-within:ring-2 focus-within:ring-steel-highlight/20 border border-navy-700/30">
+      <div className="relative flex items-center bg-navy-800 rounded-full shadow-lg pl-3 pr-3 py-3 transition focus-within:ring-2 focus-within:ring-steel-highlight/20 border border-navy-700/30">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -154,7 +154,7 @@ export function Composer(props: ComposerProps) {
           placeholder={
             activeSkill ? `Prompt for /${activeSkill.id}…` : `Ask ${assistantName}…`
           }
-          className="flex-1 bg-transparent text-steel-dark placeholder-steel/50 font-medium px-3 text-sm focus:outline-none py-1 w-full"
+          className="flex-1 bg-transparent text-steel-dark placeholder-steel-muted font-medium px-3 text-sm focus:outline-none py-1 w-full"
         />
         <div className="flex items-center gap-2">
           <button
@@ -200,13 +200,13 @@ export function Composer(props: ComposerProps) {
             className="w-8 h-8 rounded-full flex items-center justify-center text-steel hover:bg-steel-ice transition disabled:opacity-40 disabled:hover:bg-transparent"
             title={isListening ? "Stop listening" : "Start voice input"}
           >
-            {isListening ? <Square size={16} className="text-red-500" /> : <Mic size={17} />}
+            {isListening ? <Square size={16} className="text-[color:var(--color-danger)]" /> : <Mic size={17} />}
           </button>
 
           <button
             type="submit"
             disabled={!canSend}
-            className="w-8 h-8 rounded-full bg-steel-dark hover:bg-black text-white flex items-center justify-center transition shadow-md active:scale-95 disabled:opacity-40"
+            className="w-8 h-8 rounded-full bg-steel-dark hover:opacity-90 text-navy-950 flex items-center justify-center transition shadow-md active:scale-95 disabled:opacity-40"
             title="Send"
           >
             <ArrowUp size={15} />
@@ -214,7 +214,7 @@ export function Composer(props: ComposerProps) {
         </div>
       </div>
       {variant === "footer" && (
-        <div className="text-left text-[10px] text-steel/60 mt-2.5 pl-6">
+        <div className="text-left text-[10px] text-steel-muted mt-2.5 pl-6">
           {assistantName} can make mistakes. Memory is saved only after you approve it.
         </div>
       )}

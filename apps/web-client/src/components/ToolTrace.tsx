@@ -10,7 +10,7 @@ export function ToolTrace({ entries }: { entries: ToolTraceEntry[] }) {
     <div className="mt-1 text-[11px]">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1 text-steel/60 hover:text-steel-dark transition"
+        className="inline-flex items-center gap-1 text-steel-muted hover:text-steel-dark transition"
       >
         {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
         <Wrench size={10} />
@@ -21,11 +21,11 @@ export function ToolTrace({ entries }: { entries: ToolTraceEntry[] }) {
       {open && (
         <ul className="mt-1 space-y-0.5 pl-4 border-l border-navy-700/15">
           {entries.map((e, i) => (
-            <li key={i} className="text-steel/70">
+            <li key={i} className="text-steel-muted">
               <span className="font-medium text-steel-dark">{e.tool}</span>
-              <span className="text-steel/50"> ({e.args})</span>
+              <span className="text-steel-muted"> ({e.args})</span>
               {" → "}
-              <span className={e.status === "error" ? "text-red-500" : "text-steel/70"}>
+              <span className={e.status === "error" ? "text-[color:var(--color-danger)]" : "text-steel-muted"}>
                 {e.summary}
               </span>
             </li>

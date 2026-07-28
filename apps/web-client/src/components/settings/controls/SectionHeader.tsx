@@ -29,7 +29,7 @@ export function SectionHeader({
           )}
         </h3>
         {description && (
-          <p className="text-[11px] text-steel/70 mt-1">{description}</p>
+          <p className="text-[11px] text-steel-muted mt-1">{description}</p>
         )}
       </div>
       {onReset && (

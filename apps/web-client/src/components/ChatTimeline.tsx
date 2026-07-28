@@ -58,7 +58,7 @@ export function ChatTimeline({
           </div>
         ) : (
           <div key={message.id} className="flex gap-3.5 self-start w-full items-start">
-            <div className="w-6 h-6 rounded-full bg-steel-dark flex items-center justify-center text-white shrink-0 mt-1 shadow-sm">
+            <div className="w-6 h-6 rounded-full bg-steel-dark flex items-center justify-center text-navy-950 shrink-0 mt-1 shadow-sm">
               <Sparkles size={11} />
             </div>
             <div className="flex-1 flex flex-col space-y-2 min-w-0">
@@ -115,7 +115,7 @@ export function ChatTimeline({
 
       {typing && (
         <div className="flex gap-3.5 self-start w-full items-start">
-          <div className="w-6 h-6 rounded-full bg-steel-dark flex items-center justify-center text-white shrink-0 mt-1 shadow-sm">
+          <div className="w-6 h-6 rounded-full bg-steel-dark flex items-center justify-center text-navy-950 shrink-0 mt-1 shadow-sm">
             <Hourglass size={10} className="animate-spin" />
           </div>
           <div className="py-1 px-2 text-sm flex items-center gap-1.5">

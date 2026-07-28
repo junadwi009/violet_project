@@ -30,11 +30,11 @@ export function FloatingTools({
         >
           <Database size={16} />
           {pendingCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-steel-highlight text-white text-[9px] font-bold flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-steel-highlight text-navy-950 text-[9px] font-bold flex items-center justify-center">
               {pendingCount}
             </span>
           )}
-          <span className="absolute right-12 scale-0 group-hover:scale-100 bg-steel-dark text-xs px-2.5 py-1 rounded-md text-white transition-all whitespace-nowrap shadow-md">
+          <span className="absolute right-12 scale-0 group-hover:scale-100 bg-steel-dark text-xs px-2.5 py-1 rounded-md text-navy-950 transition-all whitespace-nowrap shadow-md">
             Memory
           </span>
         </button>
@@ -49,7 +49,7 @@ export function FloatingTools({
               title="Skill Lab"
             >
               <FlaskConical size={16} />
-              <span className="absolute right-12 scale-0 group-hover:scale-100 bg-steel-dark text-xs px-2.5 py-1 rounded-md text-white transition-all whitespace-nowrap shadow-md">
+              <span className="absolute right-12 scale-0 group-hover:scale-100 bg-steel-dark text-xs px-2.5 py-1 rounded-md text-navy-950 transition-all whitespace-nowrap shadow-md">
                 Skill Lab
               </span>
             </button>
@@ -64,7 +64,7 @@ export function FloatingTools({
           title="Settings"
         >
           <SlidersHorizontal size={16} />
-          <span className="absolute right-12 scale-0 group-hover:scale-100 bg-steel-dark text-xs px-2.5 py-1 rounded-md text-white transition-all whitespace-nowrap shadow-md">
+          <span className="absolute right-12 scale-0 group-hover:scale-100 bg-steel-dark text-xs px-2.5 py-1 rounded-md text-navy-950 transition-all whitespace-nowrap shadow-md">
             Settings
           </span>
         </button>
@@ -73,7 +73,7 @@ export function FloatingTools({
       <div className="fixed right-12 bottom-12 z-20">
         <button
           onClick={onOpenHelp}
-          className="w-10 h-10 rounded-full bg-white hover:bg-steel-ice border border-navy-700/20 flex items-center justify-center text-steel hover:text-steel-dark transition shadow-md"
+          className="w-10 h-10 rounded-full bg-navy-800 hover:bg-steel-ice border border-navy-700/20 flex items-center justify-center text-steel hover:text-steel-dark transition shadow-md"
           title="About"
         >
           <HelpCircle size={18} />

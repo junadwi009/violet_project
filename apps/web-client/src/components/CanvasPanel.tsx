@@ -21,12 +21,12 @@ export function CanvasPanel({ artifacts, activeId, onSelect, onClose }: Props) {
       <HtmlArtifact artifact={active} />
     );
   return (
-    <aside className="fixed inset-0 z-40 lg:static lg:inset-auto h-full w-full lg:w-[46%] shrink-0 border-l border-navy-700/20 bg-white flex flex-col">
+    <aside className="fixed inset-0 z-40 lg:static lg:inset-auto h-full w-full lg:w-[46%] shrink-0 border-l border-navy-700/20 bg-navy-800 flex flex-col">
       <header className="flex items-center gap-2 px-4 py-3 border-b border-navy-700/15">
         <span className="text-sm font-semibold text-steel-dark truncate">
           {active.title || "Canvas"}
         </span>
-        <span className="text-[10px] uppercase tracking-wider text-steel/50">
+        <span className="text-[10px] uppercase tracking-wider text-steel-muted">
           {active.kind}
         </span>
         <button

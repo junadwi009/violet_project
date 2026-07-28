@@ -53,7 +53,14 @@ export function Sidebar({
         <div className="flex items-center justify-between w-full px-1.5 mb-6">
           {expanded && (
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <span className="font-mono w-7 h-7 shrink-0 rounded-lg bg-gradient-to-br from-steel-highlight to-[#c77dff] text-white flex items-center justify-center font-bold shadow-md">
+              {/* Flat accent, not `from-steel-highlight to-[#c77dff]`. The
+                  hardcoded light end was a fixed violet that neither the theme
+                  nor the accent picker could reach, and a single letter of ink
+                  over it only cleared AA for some accents (light amber landed
+                  at 3.66:1). A flat `steel-highlight` under `text-navy-950` is
+                  the pairing index.css certifies for all ten theme x accent
+                  combinations, worst 4.61:1. */}
+              <span className="font-mono w-7 h-7 shrink-0 rounded-lg bg-steel-highlight text-navy-950 flex items-center justify-center font-bold shadow-md">
                 V
               </span>
               <span className="font-bold text-steel-dark text-lg tracking-tight">
@@ -63,7 +70,7 @@ export function Sidebar({
           )}
           <button
             onClick={onToggle}
-            className="p-1.5 rounded-lg hover:bg-white/60 transition text-steel shrink-0"
+            className="p-1.5 rounded-lg hover:bg-navy-800/60 transition text-steel shrink-0"
             title="Toggle sidebar"
           >
             <Menu size={18} />
@@ -73,7 +80,7 @@ export function Sidebar({
         {/* New chat */}
         <button
           onClick={onNewChat}
-          className={`w-full p-3 rounded-xl bg-white/50 border border-navy-700/20 text-steel-dark hover:bg-white/80 transition flex items-center gap-4 text-sm font-semibold shadow-sm mb-4 ${
+          className={`w-full p-3 rounded-xl bg-navy-800/50 border border-navy-700/20 text-steel-dark hover:bg-navy-800/80 transition flex items-center gap-4 text-sm font-semibold shadow-sm mb-4 ${
             expanded ? "" : "justify-center"
           }`}
           title="New chat"
@@ -87,19 +94,19 @@ export function Sidebar({
           <div className="relative mb-2">
             <Search
               size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-steel/60"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-steel-muted"
             />
             <input
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search chats"
-              className="w-full bg-white/60 border border-navy-700/20 rounded-xl pl-9 pr-3 py-2 text-sm text-steel-dark placeholder-steel/50 focus:outline-none focus:border-steel-highlight/50"
+              className="w-full bg-navy-800/60 border border-navy-700/20 rounded-xl pl-9 pr-3 py-2 text-sm text-steel-dark placeholder-steel-muted focus:outline-none focus:border-steel-highlight/50"
             />
           </div>
         ) : (
           <button
             onClick={onToggle}
-            className="w-full p-2.5 rounded-xl text-steel hover:text-steel-dark hover:bg-white/50 transition flex items-center justify-center"
+            className="w-full p-2.5 rounded-xl text-steel hover:text-steel-dark hover:bg-navy-800/50 transition flex items-center justify-center"
             title="Search chats"
           >
             <Search size={17} />
@@ -109,12 +116,12 @@ export function Sidebar({
         {/* Recents */}
         {expanded && (
           <div className="flex-1 flex flex-col mt-4 min-h-0 border-t border-navy-700/30 pt-4">
-            <span className="text-[10px] font-bold text-steel/60 uppercase tracking-widest mb-3 px-2">
+            <span className="text-[10px] font-bold text-steel-muted uppercase tracking-widest mb-3 px-2">
               Recents
             </span>
             <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar pr-1">
               {filtered.length === 0 ? (
-                <p className="px-2.5 py-1.5 text-xs text-steel/50">
+                <p className="px-2.5 py-1.5 text-xs text-steel-muted">
                   {sessions.length === 0 ? "No conversations yet" : "No matches"}
                 </p>
               ) : (
@@ -124,8 +131,8 @@ export function Sidebar({
                     onClick={() => onOpenSession(session.id)}
                     className={`w-full text-left px-2.5 py-1.5 text-xs rounded-lg truncate block transition ${
                       session.id === activeSessionId
-                        ? "bg-white/70 text-steel-dark font-medium"
-                        : "text-steel hover:text-steel-dark hover:bg-white/50"
+                        ? "bg-navy-800/70 text-steel-dark font-medium"
+                        : "text-steel hover:text-steel-dark hover:bg-navy-800/50"
                     }`}
                     title={session.title ?? "Untitled"}
                   >
@@ -141,13 +148,13 @@ export function Sidebar({
       {/* Footer: status + user */}
       <div className="flex flex-col gap-4 border-t border-navy-700/30 pt-4 shrink-0">
         <div
-          className={`flex items-center gap-2.5 py-1 bg-white/40 border border-navy-700/10 rounded-full transition-all ${
+          className={`flex items-center gap-2.5 py-1 bg-navy-800/40 border border-navy-700/10 rounded-full transition-all ${
             expanded ? "px-3" : "px-1.5 justify-center"
           }`}
         >
           <span
             className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-              providerActive ? "bg-emerald-500 animate-pulse" : "bg-steel-light"
+              providerActive ? "bg-[color:var(--color-success)] animate-pulse" : "bg-steel-light"
             }`}
           />
           {expanded && (
@@ -159,7 +166,7 @@ export function Sidebar({
 
         <div className="flex items-center justify-between w-full px-1">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-steel-dark text-white flex items-center justify-center font-bold text-xs shadow-sm shrink-0">
+            <div className="w-8 h-8 rounded-full bg-steel-dark text-navy-950 flex items-center justify-center font-bold text-xs shadow-sm shrink-0">
               U
             </div>
             {expanded && (
@@ -167,7 +174,7 @@ export function Sidebar({
                 <span className="text-xs font-bold text-steel-dark leading-tight">
                   You
                 </span>
-                <span className="text-[10px] text-steel/70 leading-none">
+                <span className="text-[10px] text-steel-muted leading-none">
                   Local · Workspace
                 </span>
               </div>

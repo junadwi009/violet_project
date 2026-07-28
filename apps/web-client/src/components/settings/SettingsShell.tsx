@@ -114,7 +114,7 @@ export function SettingsShell({
 
   return (
     <div
-      className="fixed inset-0 bg-steel-dark/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-[color:var(--color-scrim)]/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       // A drag that starts inside the panel (slider thumb, text selection) and
       // ends outside it still dispatches `click` on the backdrop. Close only
       // when both ends of the gesture were on the backdrop itself.

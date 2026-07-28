@@ -22,12 +22,21 @@ type SkillLabProps = {
   onClose: () => void;
 };
 
+// Same chip shape as WorkspaceHeader's tone badges — see the note beside the
+// semantic tokens in index.css. Raw palette entries cannot follow the theme.
+const OK_CHIP =
+  "bg-[color:var(--color-success)]/12 text-[color:var(--color-success)] border-[color:var(--color-success)]/40";
+const WARN_CHIP =
+  "bg-[color:var(--color-warning)]/12 text-[color:var(--color-warning)] border-[color:var(--color-warning)]/40";
+const BAD_CHIP =
+  "bg-[color:var(--color-danger)]/12 text-[color:var(--color-danger)] border-[color:var(--color-danger)]/40";
+
 const VERDICT_STYLE: Record<string, string> = {
-  keep: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  novel: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  overlaps: "bg-amber-50 text-amber-700 border-amber-200",
-  redundant: "bg-red-50 text-red-700 border-red-200",
-  low_quality: "bg-red-50 text-red-700 border-red-200",
+  keep: OK_CHIP,
+  novel: OK_CHIP,
+  overlaps: WARN_CHIP,
+  redundant: BAD_CHIP,
+  low_quality: BAD_CHIP,
 };
 
 function Verdict({ verdict }: { verdict: string }) {
@@ -125,11 +134,11 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-steel-dark/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-[color:var(--color-scrim)]/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white border border-navy-700/20 rounded-[2rem] w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[88vh]"
+        className="bg-navy-800 border border-navy-700/20 rounded-[2rem] w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[88vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-8 pt-7 pb-4 border-b border-navy-700/15">
@@ -162,7 +171,7 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
         <div className="flex-1 overflow-y-auto custom-scrollbar px-8 py-5">
           {tab === "check" ? (
             <div className="space-y-3">
-              <p className="text-xs text-steel/70">
+              <p className="text-xs text-steel-muted">
                 Paste a skill (SKILL.md) to vet it against your {library.length} installed
                 skills/agents.
               </p>
@@ -171,7 +180,11 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
                 onChange={(e) => setContent(e.target.value)}
                 placeholder={"---\nname: My Skill\ndescription: what it does\n---\nInstructions…"}
                 rows={7}
-                className="w-full rounded-xl bg-steel-ice border border-navy-700/20 p-3 text-xs font-mono text-steel-dark resize-y focus:outline-none focus:border-steel-highlight/50"
+                // The placeholder needs its own token. Left to the UA default
+                // it derives from `color` and landed at 4.31:1 on `steel-ice`
+                // in dark — `::placeholder` is a pseudo-element, so nothing
+                // that walks DOM nodes would ever have seen it.
+                className="w-full rounded-xl bg-steel-ice border border-navy-700/20 p-3 text-xs font-mono text-steel-dark placeholder-steel-muted resize-y focus:outline-none focus:border-steel-highlight/50"
               />
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-1.5 text-xs text-steel">
@@ -186,7 +199,7 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
                 <button
                   onClick={runCheck}
                   disabled={checking || !content.trim()}
-                  className="ml-auto inline-flex items-center gap-1.5 bg-steel-dark hover:bg-black text-white text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-40"
+                  className="ml-auto inline-flex items-center gap-1.5 bg-steel-dark hover:opacity-90 text-navy-950 text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-40"
                 >
                   {checking ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
                   Check
@@ -199,32 +212,32 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
                     <span className="text-sm font-semibold text-steel-dark">
                       {result.candidate.name}
                     </span>
-                    <span className="text-[11px] text-steel/60">
+                    <span className="text-[11px] text-steel-muted">
                       {result.candidate.triggers.length} triggers · {result.candidate.chars} chars
                     </span>
                   </div>
                   <div className="p-3 rounded-xl bg-steel-ice border border-navy-700/15 space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-semibold text-steel/60 uppercase">Rule</span>
+                      <span className="text-[11px] font-semibold text-steel-muted uppercase">Rule</span>
                       <Verdict verdict={result.rule.verdict} />
                       <span className="text-xs text-steel">{result.rule.reason}</span>
                     </div>
                     {result.llm && result.llm.verdict && (
                       <div className="flex items-start gap-2">
-                        <span className="text-[11px] font-semibold text-steel/60 uppercase mt-0.5">LLM</span>
+                        <span className="text-[11px] font-semibold text-steel-muted uppercase mt-0.5">LLM</span>
                         <Verdict verdict={result.llm.verdict} />
                         <span className="text-xs text-steel flex-1">{result.llm.reason}</span>
                       </div>
                     )}
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold text-steel/60 uppercase mb-1">
+                    <p className="text-[11px] font-semibold text-steel-muted uppercase mb-1">
                       Nearest in library
                     </p>
                     <div className="space-y-1">
                       {result.nearest.map((m) => (
                         <div key={m.id} className="flex items-center gap-2 text-xs text-steel">
-                          <span className="font-mono text-steel/50 w-12">{m.similarity}</span>
+                          <span className="font-mono text-steel-muted w-12">{m.similarity}</span>
                           <span className="font-medium text-steel-dark">
                             {m.kind}:{m.id}
                           </span>
@@ -242,7 +255,7 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-xs text-steel/70">
+              <p className="text-xs text-steel-muted">
                 Combine 2+ skills/agents into one upgraded SKILL.md.
               </p>
               <div className="max-h-52 overflow-y-auto custom-scrollbar rounded-xl border border-navy-700/15 divide-y divide-navy-700/10">
@@ -263,7 +276,7 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
                       }
                     />
                     <span className="font-medium text-steel-dark">{item.name}</span>
-                    <span className="text-[10px] text-steel/50 uppercase">{item.kind}</span>
+                    <span className="text-[10px] text-steel-muted uppercase">{item.kind}</span>
                   </label>
                 ))}
               </div>
@@ -272,12 +285,12 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
                   value={mergeName}
                   onChange={(e) => setMergeName(e.target.value)}
                   placeholder="New skill name"
-                  className="flex-1 rounded-lg bg-steel-ice border border-navy-700/20 px-3 py-2 text-sm text-steel-dark focus:outline-none focus:border-steel-highlight/50"
+                  className="flex-1 rounded-lg bg-steel-ice border border-navy-700/20 px-3 py-2 text-sm text-steel-dark placeholder-steel-muted focus:outline-none focus:border-steel-highlight/50"
                 />
                 <button
                   onClick={runMerge}
                   disabled={merging || selected.length < 2 || !mergeName.trim()}
-                  className="inline-flex items-center gap-1.5 bg-steel-dark hover:bg-black text-white text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-40"
+                  className="inline-flex items-center gap-1.5 bg-steel-dark hover:opacity-90 text-navy-950 text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-40"
                 >
                   {merging ? <Loader2 size={15} className="animate-spin" /> : <GitMerge size={15} />}
                   Merge {selected.length > 0 ? `(${selected.length})` : ""}
@@ -289,7 +302,7 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
                     <button
                       onClick={runInstall}
                       disabled={installing}
-                      className="inline-flex items-center gap-1.5 bg-steel-highlight hover:bg-steel-highlight/90 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition disabled:opacity-40"
+                      className="inline-flex items-center gap-1.5 bg-steel-highlight hover:bg-steel-highlight/90 text-navy-950 text-xs font-semibold px-3.5 py-2 rounded-lg transition disabled:opacity-40"
                     >
                       {installing ? (
                         <Loader2 size={14} className="animate-spin" />
@@ -300,12 +313,12 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
                     </button>
                     <button
                       onClick={() => navigator.clipboard?.writeText(mergeOut)}
-                      className="inline-flex items-center gap-1 bg-white border border-navy-700/20 rounded-lg px-3 py-2 text-xs text-steel hover:text-steel-dark"
+                      className="inline-flex items-center gap-1 bg-navy-800 border border-navy-700/20 rounded-lg px-3 py-2 text-xs text-steel hover:text-steel-dark"
                     >
                       <Copy size={13} /> Copy
                     </button>
                     {installed && (
-                      <span className="text-xs text-emerald-700 font-medium">
+                      <span className="text-xs text-[color:var(--color-success)] font-medium">
                         ✓ Installed as “{installed}” — live now
                       </span>
                     )}
@@ -318,7 +331,7 @@ export function SkillLab({ open, onClose }: SkillLabProps) {
             </div>
           )}
 
-          {status && <p className="text-xs text-red-600 mt-3">{status}</p>}
+          {status && <p className="text-xs text-[color:var(--color-danger)] mt-3">{status}</p>}
         </div>
       </div>
     </div>

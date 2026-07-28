@@ -18,9 +18,21 @@ export function EmptyState({ assistantName, composer, onQuickPrompt }: EmptyStat
       <div className="relative flex flex-col items-center">
         <div className="absolute inset-0 rounded-full glowing-avatar opacity-60 blur-3xl w-36 h-36" />
         <div className="relative w-36 h-36 overflow-hidden z-10 soft-edge-avatar rounded-full">
+          {/* Deliberate exception, like the accent swatches: the amethyst orb
+              is a fixed brand illustration and renders identically in both
+              themes, so its stops are literals on purpose. Measured against
+              the gradient the monogram actually sits on (not the page behind
+              it): 2.75:1 at the glyph's top stroke, 3.32:1 at its centre,
+              4.25:1 at its foot. 48px/600 counts as large text, so 3:1 is the
+              bar and the top stroke is marginally under it. Left as-is — it is
+              a decorative monogram that repeats the assistant name rendered as
+              real text below; clearing it everywhere means darkening the
+              gradient's inner stop, which is a brand change, not a contrast
+              one. `text-white` (was `text-white/90`, 2.50:1) is the part that
+              is purely a contrast fix. */}
           <div className="w-full h-full rounded-full bg-[radial-gradient(circle_at_50%_35%,#c77dff_0%,#9d4edd_45%,#7b2cbf_75%,#5a189a_100%)]" />
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="font-mono text-5xl font-semibold text-white/90 drop-shadow">
+            <span className="font-mono text-5xl font-semibold text-white drop-shadow">
               V
             </span>
           </div>
@@ -31,7 +43,7 @@ export function EmptyState({ assistantName, composer, onQuickPrompt }: EmptyStat
         <h1 className="text-4xl font-light text-steel-dark tracking-wide">
           Ready when you are
         </h1>
-        <p className="text-xs text-steel/60">
+        <p className="text-xs text-steel-muted">
           Start a conversation with {assistantName}
         </p>
       </div>
@@ -43,7 +55,7 @@ export function EmptyState({ assistantName, composer, onQuickPrompt }: EmptyStat
           <button
             key={prompt}
             onClick={() => onQuickPrompt(prompt)}
-            className="px-3.5 py-2 rounded-full bg-white/70 border border-navy-700/20 text-xs text-steel hover:text-steel-dark hover:bg-white transition shadow-sm"
+            className="px-3.5 py-2 rounded-full bg-navy-800/70 border border-navy-700/20 text-xs text-steel hover:text-steel-dark hover:bg-navy-800 transition shadow-sm"
           >
             {prompt}
           </button>

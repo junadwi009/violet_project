@@ -76,7 +76,7 @@ export function VoicePanel({
       />
 
       {synthesisUnavailable && (
-        <p className="text-xs text-steel/70">
+        <p className="text-xs text-steel-muted">
           This browser does not support speech synthesis, so the voice,
           rate, pitch, and auto-speak settings would have no effect. Try a
           Chromium-based browser. Language is still used for speech input if
@@ -100,7 +100,7 @@ export function VoicePanel({
             value={voiceName}
             onChange={(event) => patchNow({ voice_name: event.target.value })}
             aria-describedby={missing ? missingId : undefined}
-            className="w-full text-xs bg-navy-800 border border-navy-700/20 rounded-lg px-2.5 py-1.5 text-steel-dark focus:outline-none focus:ring-1 focus:ring-steel-highlight/30"
+            className="w-full text-xs bg-navy-800 border border-navy-700/20 rounded-lg px-2.5 py-1.5 text-steel-dark placeholder-steel-muted focus:outline-none focus:ring-1 focus:ring-steel-highlight/30"
           >
             <option value="">Browser default</option>
             {voices.map((voice) => (

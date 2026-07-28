@@ -57,7 +57,7 @@ export function AgentsPanel({
                 >
                   {agent.name}
                 </span>
-                <span className="text-[11px] text-steel/60 text-left">
+                <span className="text-[11px] text-steel-muted text-left">
                   {agent.description}
                 </span>
               </button>

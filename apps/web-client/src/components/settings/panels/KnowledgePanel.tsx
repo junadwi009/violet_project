@@ -69,11 +69,11 @@ export function KnowledgePanel({
               className="flex items-center gap-2 text-[11px] border-t border-navy-700/10 pt-2"
             >
               <span className="font-medium capitalize text-steel-dark">{s.name}</span>
-              <span className={s.connected ? "text-emerald-600" : "text-amber-600"}>
+              <span className={s.connected ? "text-[color:var(--color-success)]" : "text-[color:var(--color-warning)]"}>
                 {s.connected ? "connected" : s.detail}
               </span>
               {knowledge.auto_sync?.last_sync?.[s.name]?.at && (
-                <span className="text-steel/50">
+                <span className="text-steel-muted">
                   · synced{" "}
                   {new Date(
                     knowledge.auto_sync.last_sync[s.name]!.at!,
@@ -99,7 +99,7 @@ export function KnowledgePanel({
                   {devMode && (
                     <button
                       onClick={onDisconnectGDrive}
-                      className="text-steel/60 hover:underline"
+                      className="text-steel-muted hover:underline"
                     >
                       Disconnect
                     </button>
@@ -109,7 +109,7 @@ export function KnowledgePanel({
             </div>
           ))}
           {!knowledge.enabled && (
-            <div className="text-[11px] text-amber-600">
+            <div className="text-[11px] text-[color:var(--color-warning)]">
               Retrieval off — set RAG_PROVIDER=vector to enable.
             </div>
           )}
@@ -125,12 +125,10 @@ export function KnowledgePanel({
               <button
                 onClick={() => onReindex(true)}
                 disabled={!knowledge.enabled}
-                // `bg-white` is a literal #fff that dark mode cannot override,
-                // so this is one of the pre-existing dark-mode contrast
-                // failures. Carried over unchanged on purpose: Task 17 owns
-                // that inventory, and silently fixing one here would make it
-                // wrong.
-                className="flex-1 text-xs font-medium text-steel bg-white border border-navy-700/20 rounded-lg py-2 transition disabled:opacity-40"
+                // Was `bg-white`, a literal #fff that dark mode cannot
+                // override — `text-steel` on it measured 2.17:1 in dark. Task
+                // 17's sweep converted it to the card surface token.
+                className="flex-1 text-xs font-medium text-steel bg-navy-800 border border-navy-700/20 rounded-lg py-2 transition disabled:opacity-40"
               >
                 Full rebuild
               </button>
@@ -144,7 +142,7 @@ export function KnowledgePanel({
                   className="text-[11px] text-steel-dark flex justify-between gap-2"
                 >
                   <span className="truncate">{d.path}</span>
-                  <span className="text-steel/60 shrink-0">{d.chunk_count}</span>
+                  <span className="text-steel-muted shrink-0">{d.chunk_count}</span>
                 </li>
               ))}
             </ul>

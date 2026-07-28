@@ -41,10 +41,10 @@ export function TextRow({
           setLocal(event.target.value);
           onChange(event.target.value);
         }}
-        className="w-full text-xs font-mono bg-navy-800 border border-navy-700/20 rounded-lg px-2.5 py-1.5 text-steel-dark focus:outline-none focus:ring-1 focus:ring-steel-highlight/30"
+        className="w-full text-xs font-mono bg-navy-800 border border-navy-700/20 rounded-lg px-2.5 py-1.5 text-steel-dark placeholder-steel-muted focus:outline-none focus:ring-1 focus:ring-steel-highlight/30"
       />
       {hint && (
-        <p id={hintId} className="text-[11px] text-steel/60 mt-1">
+        <p id={hintId} className="text-[11px] text-steel-muted mt-1">
           {hint}
         </p>
       )}
