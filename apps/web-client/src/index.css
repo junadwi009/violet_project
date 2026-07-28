@@ -106,15 +106,30 @@
 [data-theme="dark"] {
   --color-success: #34d399;
   --color-warning: #fbbf24;
-  --color-danger: #f87171;
+  /* Was #f87171 (Tailwind red-400). Moving --color-steel-ice one step lighter
+     (#241d31 → #2c2440, see above) made the ice tint the WORST surface a status
+     chip can land on, and the 12% danger chip on it measured 4.44:1 — under AA.
+     SkillLab's `redundant` / `low_quality` verdicts render exactly there
+     (SkillLab.tsx:219, a `p-3 rounded-xl bg-steel-ice` wrapper), so this was
+     reachable, not theoretical. #fb8a8a is the smallest hue-preserving step
+     that restores a real margin on every surface at once; measured worst-first:
+
+       12% chip:  steel-ice 5.14  navy-800 5.69  header bar 6.17
+                  navy-900 6.23   navy-950 6.73
+       plain:     steel-ice 6.35  navy-800 7.03  navy-900 7.64  navy-950 8.12
+       solid fill under text-navy-950: 8.12
+
+     Lightening is monotone here — it raises the tinted-chip ratios AND the
+     dark ink on the solid fill — so no danger surface regresses. */
+  --color-danger: #fb8a8a;
 }
 /* --color-danger is for destructive *text and borders*, and is measured as
    text against the card surface it is used on: light #b91c1c on
-   --color-navy-800 #ffffff is 6.47:1; dark #f87171 on #241d31 is 5.86:1.
+   --color-navy-800 #ffffff is 6.47:1; dark #fb8a8a on #241d31 is 7.03:1.
    Both clear AA. It is deliberately NOT used as a solid fill behind white
-   text — `#fbbf24`/`#f87171` under `text-white` computes 1.67:1 (light) and
-   2.77:1 (dark) — both fail badly, which is the exact failure mode the rest
-   of this file is being swept for.
+   text: the dark-theme semantic values are *light* colours, so `text-white`
+   on them measures 2.31:1 (danger #fb8a8a) and 1.92:1 (success #34d399) —
+   the exact failure mode the rest of this file is being swept for.
 
    --color-success is checked against both surfaces it can sit on (page
    --color-navy-950, card --color-navy-800), worse one quoted: light #065f46
@@ -128,15 +143,31 @@
    the one shape that survives both themes: a 12% tint of the token as the
    fill, the token itself as the text, and a 40% tint as the border. Tinting a
    surface with the very colour drawn on it costs contrast, so the ratios are
-   quoted here rather than assumed — worst surface per theme:
+   quoted here rather than assumed.
 
-     success  5.28 light / 6.74 dark      warning  5.88 / 7.51
-     danger   5.28 light / 4.89 dark
+   The worst surface a chip can land on is `--color-steel-ice`, NOT the card:
+   SkillLab's verdict row is a `p-3 rounded-xl bg-steel-ice` wrapper. An
+   earlier revision of this note quoted the card figures (danger 5.28 / 4.89)
+   as if they were the worst case, which is how a 4.44:1 danger chip on the ice
+   tint went unnoticed when steel-ice moved. Worst surface per theme, measured
+   in that exact nesting:
+
+     success  5.64 light / 6.09 dark      warning  5.22 / 6.81
+     danger   4.65 light / 5.14 dark
+
+   One surface is deliberately NOT in that list because nothing renders a chip
+   there today: a 12% danger chip on the light sidebar (--color-navy-900)
+   measures 4.43:1. Chips currently land on steel-ice (SkillLab verdicts) and
+   on the header bar (WorkspaceHeader tone). If a status chip is ever added to
+   the sidebar, light danger needs re-tuning first.
 
    A *solid* semantic fill is only safe under `text-navy-950`, never
    `text-white`: navy-950 inverts with the theme, so it is the light ink on a
    dark fill and the dark ink on a light one (success 4.99 / 9.79, danger
-   5.88 / 6.80). That is the same trick every `bg-steel-dark` button uses. */
+   5.94 / 8.12). That is the same trick every `bg-steel-dark` button uses.
+   Note the rest state only: `hover:opacity-90` on a solid danger fill dims
+   the whole button toward its backdrop and measures 4.44:1 at light/violet —
+   a hover-only near-miss, recorded in the Task 17 report rather than fixed. */
 
 /* Accent — one hue per theme. The accent is used for link and button *text*,
    not only for fills, so every hue is measured against BOTH surfaces it can
@@ -209,8 +240,14 @@ body {
 @layer utilities {
   /* The fill and border are tokens, not literal whites. As `rgba(255,255,255,…)`
      this stayed a white slab in dark mode with `text-steel` icons on it —
-     1.09:1 for the whole FloatingTools rail. `navy-800` is #ffffff in light, so
-     light mode is byte-identical to before. */
+     1.09:1 for the whole FloatingTools rail.
+
+     Light mode is byte-identical for the FILL only: `--color-navy-800` is
+     #ffffff, so `navy-800 70%` reproduces `rgba(255,255,255,0.7)` exactly. The
+     BORDER is not identical — it went from `rgba(255,255,255,0.5)` to
+     `--color-navy-700` (#ded5e8) at 50%, i.e. a faint lavender hairline where
+     there was previously an invisible white one. Cosmetic, and arguably the
+     better edge, but it is a light-mode visual change. */
   .glass-panel {
     background: color-mix(in srgb, var(--color-navy-800) 70%, transparent);
     backdrop-filter: blur(16px);

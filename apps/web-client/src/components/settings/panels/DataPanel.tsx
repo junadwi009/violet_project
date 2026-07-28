@@ -290,10 +290,16 @@ export function DataPanel({
                 setClearing(false);
               }
             }}
-            // Outlined, not a solid red fill: `text-navy-950` on either danger
+            // Outlined, not a solid red fill: `text-white` on either danger
             // value fails contrast badly in dark mode (~1.5:1). Bold danger-
             // colored text inside a full-strength danger border is just as
             // loud and stays legible in both themes.
+            //
+            // (`text-navy-950` on a solid danger fill is fine — 5.94 light /
+            // 8.12 dark, and MemoryDrawer/VoiceOverlay ship exactly that. It
+            // is `text-white` that fails. A mechanical class substitution
+            // during the Task 17 sweep rewrote this sentence as if it were
+            // markup; the original wording was correct.)
             //
             // The resting fill is transparent on purpose. Measured in the
             // browser: a 15% danger tint *on top of* this section's own 5%
